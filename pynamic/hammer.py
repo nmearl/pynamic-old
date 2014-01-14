@@ -6,28 +6,14 @@ from __future__ import print_function
 import emcee
 import triangle
 import numpy as np
-import scipy.optimize as op
 import pylab as pl
-from matplotlib.ticker import MaxNLocator
+import utilfuncs
 import modeler
-
-
-def _split_parameters(theta, N):
-    sys_params, ind_params = theta[:5 * N], theta[5 * N:]
-
-    masses, radii, fluxes, u1, u2 = [np.array(sys_params[i:N + i]) for i in range(0, len(sys_params), N)]
-    a, e, inc, om, ln, ma = [np.array(ind_params[i:N - 1 + i]) for i in range(0, len(ind_params), N - 1)]
-
-    # print_out([masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma], N)
-    # for par in [masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma]:
-    #     print(par)
-
-    return masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
 
 
 # Define the probability function as likelihood * prior.
 def lnprior(theta, N):
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = _split_parameters(theta, N)
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(theta, N)
 
     # print('mas', masses, len(masses[masses <= 0.0]) == 0)
     # print('rad', radii, len(radii[radii <= 0.0]) == 0)
@@ -76,7 +62,7 @@ def lnprior(theta, N):
 
 
 def lnlike(theta, x, y, yerr, N, t0, maxh, orbit_error):
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = _split_parameters(theta, N)
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(theta, N)
 
     print('Creating likelihood function...')
     model = modeler.generate(

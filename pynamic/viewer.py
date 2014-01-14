@@ -3,6 +3,8 @@ __author__ = 'nmearl'
 import numpy as np
 import pylab
 from matplotlib import gridspec
+import utilfuncs
+import modeler
 
 
 def viewnp(filename, show_residuals=False):
@@ -53,6 +55,44 @@ def plotter(filename):
     pylab.show()
 
 
+def chain_plotter(filename):
+    n, lnp, params = [], [], []
+
+    with open(filename, 'r') as f:
+        for line in f:
+            line = line.strip().split()
+
+            n.append(int(line[0]))
+            lnp.append(float(line[1]))
+            params.append(line[2:])
+
+    n, lnp, params = np.array(n), np.array(lnp), np.array(params)
+
+    lnp = np.sort(lnp)
+    inds = np.argsort(lnp)
+
+    n = n[inds]
+    params = params[inds]
+
+    print(lnp[-1])
+    print(params[-1])
+
+    N, t0, maxh, orbit_error = 3, 170.5, 0.01, 1.0e-20
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(params[-1], 3)
+
+    x = np.linspace(-46.461309595, 1424.00096216, 65312)
+    model = modeler.generate(
+        N, t0, maxh, orbit_error,
+        x,
+        masses, radii, fluxes, u1, u2,
+        a, e, inc, om, ln, ma
+    )
+
+    pylab.plot(x, model)
+    pylab.show()
+
+
 if __name__ == '__main__':
-    viewnp('./output/mcmc_kep47.npz', True)
+    chain_plotter('chain.dat')
+    # viewnp('./output/mcmc_kep47.npz', True)
     # plotter('./output/chi2_surface_test.dat')
