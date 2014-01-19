@@ -115,7 +115,7 @@ def main(input_file, data_file, fit_method):
 
     elif fit_method == 'mcmc':
         hammer.generate(
-            params, x[:n], y[:n], yerr[:n],
+            params, x[:n], y[:n], yerr[:n], input_file
         )
 
     elif fit_method == 'plot':

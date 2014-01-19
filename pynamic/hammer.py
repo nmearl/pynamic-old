@@ -85,7 +85,7 @@ def lnprob(theta, x, y, yerr, N, t0, maxh, orbit_error):
     return lp + lnlike(theta, x, y, yerr, N, t0, maxh, orbit_error)
 
 
-def generate(params, x, y, yerr):
+def generate(params, x, y, yerr, input_file):
     #np.seterr(all='raise')
 
     N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
@@ -103,15 +103,8 @@ def generate(params, x, y, yerr):
 
     print(theta)
 
-
-    #print("""Maximum likelihood result:
-    #    m = {0} (truth: {1})
-    #    b = {2} (truth: {3})
-    #    f = {4} (truth: {5})
-    #""".format(m_ml, m_true, b_ml, b_true, np.exp(lnf_ml), f_true))
-
     # Set up the sampler.
-    ndim, nwalkers = len(theta), 54
+    ndim, nwalkers = len(theta), 250
     pos = [theta + theta * 0.1 * np.random.randn(ndim)
            # if not theta == 0.0 else theta + 0.1 * np.random.randn(ndim)
            for i in range(nwalkers)]
@@ -121,15 +114,15 @@ def generate(params, x, y, yerr):
     # Clear and run the production chain.
     print("Running MCMC...", )
     # pos, prob, state = sampler.run_mcmc(pos, 100)#, rstate0=np.random.get_state())
-    f = open("chain.dat", "w")
+    f = open("chain_{0:s}.dat".format(input_file), "w")
     f.close()
 
-    for result in sampler.sample(pos, iterations=250, storechain=False):
-        position, lnprobability = result[0], result[1]
+    for ipos, lnp, state in sampler.sample(pos, iterations=1000, storechain=False):
+        maxlnprob = np.argmax(lnp)
+        bestipos = ipos[maxlnprob, :]
 
-        with open("chain.dat", "a") as f:
-            for k in range(position.shape[0]):
-                f.write("{0:4d} {1:s} {2:s}\n".format(k, str(lnprobability[k]), " ".join(map(str, position[k]))))
+        with open("chain_{0:s}.dat".format(input_file), "a") as f:
+            f.write("{0:s} {1:s}\n".format(str(maxlnprob), " ".join(map(str, bestipos))))
 
     print("Done.")
     print("Final parameter set: ")
@@ -139,38 +132,16 @@ def generate(params, x, y, yerr):
         pl.clf()
         pl.plot(sampler.chain[:, :, i].T, color="k", alpha=0.4)
         pl.axhline(theta[i], color="r", lw=2)
-        pl.savefig('./output/line_{0}.png'.format(i))
+        pl.savefig('./output/line_{0}_{1}.png'.format(i, input_file))
         #pl.clf()
-    #fig, axes = pl.subplots(3, 1, sharex=True, figsize=(8, 9))
-    #axes[0].plot(sampler.chain[:, :, 0].T, color="k", alpha=0.4)
-    #axes[0].yaxis.set_major_locator(MaxNLocator(5))
-    #axes[0].axhline(m_true, color="#888888", lw=2)
-    #axes[0].set_ylabel("$m$")
-    #
-    #axes[1].plot(sampler.chain[:, :, 1].T, color="k", alpha=0.4)
-    #axes[1].yaxis.set_major_locator(MaxNLocator(5))
-    #axes[1].axhline(b_true, color="#888888", lw=2)
-    #axes[1].set_ylabel("$b$")
-    #
-    #axes[2].plot(np.exp(sampler.chain[:, :, 2]).T, color="k", alpha=0.4)
-    #axes[2].yaxis.set_major_locator(MaxNLocator(5))
-    #axes[2].axhline(f_true, color="#888888", lw=2)
-    #axes[2].set_ylabel("$f$")
-    #axes[2].set_xlabel("step number")
-    #
-    #fig.tight_layout(h_pad=0.0)
-    #fig.savefig("line-time.png")
 
     # Make the triangle plot.
     print('Burning in; creating sampler chain...')
-    burnin = 1
+    burnin = 50
     samples = sampler.chain[:, burnin:, :].reshape((-1, ndim))
 
-    print(samples.shape)
-    print(samples[:, 0])
-
     fig = triangle.corner(samples)
-    fig.savefig("./output/kep47-triangle.eps")
+    fig.savefig("./output/triangle_{0}.eps".format(input_file))
 
     # Compute the quantiles.
     print('Computing quantiles...')
@@ -183,11 +154,11 @@ def generate(params, x, y, yerr):
                            axis=0))
     ))
 
-    report_out(results, N)
+    report_out(results, N, input_file)
 
     print('Modelling final results...')
     # Produce final model and save the values
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = _split_parameters(results[:, 0], N)
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs._split_parameters(results[:, 0], N)
 
     model = modeler.generate(
         N, t0, maxh, orbit_error,
@@ -196,21 +167,21 @@ def generate(params, x, y, yerr):
         a, e, inc, om, ln, ma
     )
 
-    np.savez('./output/mcmc_kep126', x, y, model)
+    np.savez('./output/mcmc_{0}'.format(input_file), x, y, model)
 
-    plotter(sampler, samples, ndim, x, y, model)
+    plotter(sampler, samples, ndim, x, y, model, input_file)
 
 
-def report_out(results, N):
+def report_out(results, N, input_file):
     GMsun = 2.959122083E-4 # AU**3/day**2
     Rsun = 0.00465116 # AU
 
-    results = _split_parameters(results, N)
+    results = utilfuncs._split_parameters(results, N)
     names = ['mass', 'radii', 'flux', 'u1', 'u2', 'a', 'e', 'inc', 'om', 'ln', 'ma']
 
     print('Saving results to file...')
 
-    with open('./output/report_mcmc.out', 'w') as f:
+    with open('./output/report_mcmc_{0}.out'.format(input_file), 'w') as f:
         for i in range(len(results)):
             param = np.array(results[i])
 
@@ -250,7 +221,7 @@ def print_out(results, N):
             print("{0:8s}_{1} = {2[0]:20.11e} +{2[1]:20.11e} -{2[2]:20.11e}\n".format(names[i], j, param[j]))
 
 
-def plotter(sampler, samples, ndim, x, y, model):
+def plotter(sampler, samples, ndim, x, y, model, input_file):
     print("Generating plots...")
     #N, t0, maxh, orbit_error = sys_params
     #masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = _split_parameters(results, N)
@@ -265,4 +236,4 @@ def plotter(sampler, samples, ndim, x, y, model):
 
     pl.plot(x, model, 'k+')
     pl.plot(x, y, 'r')
-    pl.savefig('./output/mcmc_kep126.png')
+    pl.savefig('./output/mcmc_{0}.png'.format(input_file))
