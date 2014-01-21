@@ -4,6 +4,7 @@ import emcee
 import numpy as np
 import utilfuncs
 import modeler
+import scipy.optimize as op
 
 
 # Define the probability function as likelihood * prior.
@@ -19,9 +20,8 @@ def lnprior(theta, N):
         and len(e[(e > 1.0) | (e < 0.0)]) == 0 \
         and len(inc[(inc > (2.0 * np.pi)) | (inc < 0.0)]) == 0 \
         and len(om[(om > (2.0 * np.pi)) | (om < 0.0)]) == 0 \
-        and len(ln[(ln > np.pi) | (ln < 0.0)]) == 0 \
-        and len(ma[(ma > (2.0 * np.pi)) | (ma < 0.0)]) == 0 \
-        and (masses[2] > masses[0] > masses[1]):
+        and len(ln[(ln > np.pi) | (ln < -np.pi)]) == 0 \
+        and len(ma[(ma > (2.0 * np.pi)) | (ma < 0.0)]) == 0:
 
         print('\nComparing prior function...')
         print('{0:11s} {1:11s} {2:11s} {3:11s} {4:11s} {5:11s} {6:11s} {7:11s} {8:11s} {9:11s} {10:11s}'.format(
@@ -79,34 +79,30 @@ def generate(params, x, y, yerr, fname):
     print("Searching for maximum likelihood values...")
 
     # Find the maximum likelihood value.
-    # chi2 = lambda *args: -2 * lnlike(*args)
-    # result = op.minimize(
-    #     chi2, theta,
-    #     args=(x, y, yerr, N, t0, maxh, orbit_error)
-    # )
-
-    print(theta)
+    chi2 = lambda *args: -2 * lnlike(*args)
+    result = op.minimize(
+        chi2, theta,
+        args=(x, y, yerr, N, t0, maxh, orbit_error)
+    )
 
     # Set up the sampler.
-    ndim, nwalkers = len(theta), 250
-    pos = [theta + theta * 0.1 * np.random.randn(ndim)
-           # if not theta == 0.0 else theta + 0.1 * np.random.randn(ndim)
-           for i in range(nwalkers)]
+    ndim, nwalkers = len(theta), 100
+    pos0 = [result['x'] + 1e-4 * np.random.randn(ndim) for i in range(nwalkers)]
 
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(x, y, yerr, N, t0, maxh, orbit_error))#, threads=2)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(x, y, yerr, N, t0, maxh, orbit_error), threads=4)
 
     # Clear and run the production chain.
-    print("Running MCMC...", )
+    print("Running MCMC...")
     # pos, prob, state = sampler.run_mcmc(pos, 100)#, rstate0=np.random.get_state())
-    f = open("./output/chain_{0:s}.dat".format(fname), "w")
+    f = open("output/chain_{0:s}.dat".format(fname), "w")
     f.close()
 
-    for ipos, lnp, state in sampler.sample(pos, iterations=1000, storechain=False):
+    for pos, lnp, state in sampler.sample(pos0, iterations=500, storechain=False):
         maxlnprob = np.argmax(lnp)
-        bestipos = ipos[maxlnprob, :]
+        bestpos = pos[maxlnprob, :]
 
-        with open("./output/chain_{0:s}.dat".format(fname), "a") as f:
-            f.write("{0:s} {1:s}\n".format(str(maxlnprob), " ".join(map(str, bestipos))))
+        with open("output/chain_{0:s}.dat".format(fname), "a") as f:
+            f.write("{0:s} {1:s}\n".format(str(lnp[maxlnprob]), " ".join(map(str, bestpos))))
 
     print("Done.")
 
@@ -116,17 +112,17 @@ def generate(params, x, y, yerr, fname):
 
     # Compute the quantiles.
     print('Computing quantiles; mapping results...')
-    results = np.array(
-        map(
-            lambda v: (v[1], v[2] - v[1], v[1] - v[0]),
-            zip(*np.percentile(samples, [16, 50, 84],
-                               axis=0))
-        )
+    results = map(
+        lambda v: (v[1], v[2] - v[1], v[1] - v[0]),
+        zip(*np.percentile(samples, [16, 50, 84],
+                           axis=0))
     )
 
-    print('Modelling final results...')
+    print(results)
+
+    print('Modeling final results...')
     # Produce final model and save the values
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(results[:, 0], N)
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(results, N)
 
     model = modeler.generate(
         N, t0, maxh, orbit_error,

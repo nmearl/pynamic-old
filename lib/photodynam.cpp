@@ -99,9 +99,7 @@ void start(double *out_fluxes, int N, double t0, double maxh, double orbit_error
             double *inc, double *om, double *ln, double *ma) {
 
 	// Instantiate state.  Time t0 is epoch of above coordinates
-
-	NBodyState state(mass,a,e,inc,om,ln,ma,N,t0);
-
+    NBodyState state(mass,a,e,inc,om,ln,ma,N,t0);
 	int status;
 	double t;
 

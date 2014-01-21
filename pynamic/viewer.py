@@ -55,25 +55,30 @@ def plotter(filename):
     pylab.show()
 
 
-def chain_plotter(filename):
+def chain_plotter(filename, N):
     n, lnp, params = [], [], []
 
     with open(filename, 'r') as f:
-        print(len(f.readlines()))
         for line in f:
             line = line.strip().split()
 
             lnp.append(float(line[0]))
-            params.append(line[1:])
+            params.append(np.array([float(x) for x in line[1:]]))
 
-    for i in range(len(params)):
-        params[i] = map(float, params[i])
+    lnp = np.array(lnp)
+    params = np.array(params)
 
-    chain_list = zip(lnp, params)
-    chain_list = sorted(chain_list)
-    chain_list = [x for x in chain_list if np.isfinite(x[0])]
-    print(chain_list[-1])
-    print(chain_list[0])
+    maxlnprob = np.argmax(lnp)
+    bestpos = params[maxlnprob, :]
+
+    print(lnp[maxlnprob], bestpos)
+    return
+
+    # chain_list = zip(lnp, params)
+    # chain_list = sorted(chain_list)
+    # chain_list = [x for x in chain_list if np.isfinite(x[0])]
+    # print(chain_list[-1])
+    # print(chain_list[0])
 
     #n, lnp, params = np.array(n), np.array(lnp), np.array(params)
     #lnp = np.sort(lnp)
@@ -87,7 +92,7 @@ def chain_plotter(filename):
     #print(params[-1])
 
     N, t0, maxh, orbit_error = 3, 170.5, 0.01, 1.0e-20
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(chain_list[-1][1], 3)
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(bestpos, N)
 
     x = np.linspace(-46.461309595, 1424.00096216, 65312)
     model = modeler.generate(
@@ -102,6 +107,7 @@ def chain_plotter(filename):
 
 
 if __name__ == '__main__':
-    chain_plotter('./output/chain.dat')
+    # chain_plotter('./output/chain_kep126_full_llc.dat', 3)
+    chain_plotter('./output/chain_kid010020423.dat', 5)
     # viewnp('./output/mcmc_kep47.npz', True)
     # plotter('./output/chi2_surface_test.dat')

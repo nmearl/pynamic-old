@@ -3,6 +3,7 @@ __author__ = 'nmearl'
 import numpy as np
 import pylab as pl
 import triangle
+import os
 
 
 def split_parameters(theta, N):
@@ -41,6 +42,9 @@ def print_out(results, N):
 def plot_out(x, y, model, theta, fname, *args):
     print("Generating plots...")
 
+    if not os.path.exists("./output"):
+        os.mkdir("./output")
+
     if args:
         sampler, samples, ndim = args
 
@@ -78,6 +82,9 @@ def report_out(results, N, fname):
 
     print('Saving results to file...')
 
+    if not os.path.exists("./output"):
+        os.mkdir("./output")
+
     with open('./output/report_mcmc_{0}.out'.format(fname), 'w') as f:
         for i in range(len(results)):
             param = np.array(results[i])
@@ -85,6 +92,7 @@ def report_out(results, N, fname):
             for j in range(len(param)):
 
                 print("{0:8s}_{1} = {2[0]:20.11e} +{2[1]:20.11e} -{2[2]:20.11e}".format(names[i], j, param[j]))
+                f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}\n".format(names[i], j, param[j]))
 
                 if names[i] == 'mass':
                     param /= GMsun
