@@ -48,7 +48,7 @@ def lnprob(theta, x, y, yerr, N, t0, maxh, orbit_error):
     return lp + lnlike(theta, x, y, yerr, N, t0, maxh, orbit_error)
 
 
-def generate(params, x, y, yerr, nwalkers, niterations, fname):
+def generate(params, x, y, yerr, nwalkers, niterations, ncores, fname):
     #np.seterr(all='raise')
 
     N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
@@ -68,7 +68,7 @@ def generate(params, x, y, yerr, nwalkers, niterations, fname):
     ndim = len(theta)
     pos0 = [theta + 1e-4 * np.random.randn(ndim) for i in range(nwalkers)]
 
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(x, y, yerr, N, t0, maxh, orbit_error))#, threads=4)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(x, y, yerr, N, t0, maxh, orbit_error), threads=ncores)
 
     # Clear and run the production chain.
     print("Running MCMC...")
