@@ -86,7 +86,7 @@ def plot_model(params, x, y, yerr):
     )
 
     pylab.plot(x, y, 'k+')
-    pylab.plot(x, y_mod, 'r')
+    pylab.plot(x, y_mod, 'r+')
 
     pylab.show()
 

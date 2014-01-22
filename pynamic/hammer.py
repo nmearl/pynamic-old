@@ -85,12 +85,13 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, rpars, fname):
     f = open("output/chain_{0:s}.dat".format(fname), "w")
     f.close()
 
-    citer, tlast = 0.0, time.time()
+    citer, tlast, tsum = 0.0, time.time(), 0.0
 
     for pos, lnp, state in sampler.sample(pos0, iterations=niterations, storechain=False,
                                           rstate0=np.random.get_state()):
         citer += 1.0
-        tleft = (time.time() - tlast) * (niterations - citer)
+        tsum += (time.time() - tlast)
+        tleft = tsum / citer * (niterations - citer)
         tlast = time.time()
 
         maxlnprob = np.argmax(lnp)
