@@ -80,16 +80,19 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, fname):
     f = open("output/chain_{0:s}.dat".format(fname), "w")
     f.close()
 
+    citer = 0.0
+
     for pos, lnp, state in sampler.sample(pos0, iterations=niterations, storechain=False,
                                           rstate0=np.random.get_state()):
+        citer += 1.0
         maxlnprob = np.argmax(lnp)
         bestpos = pos[maxlnprob, :]
 
-        iterprint(N, bestpos)
+        iterprint(N, bestpos, citer / niterations)
         utilfuncs.report_as_input(bestpos, N, fname)
 
-        with open("output/chain_{0:s}.dat".format(fname), "a") as f:
-            f.write("{0:s} {1:s}\n".format(str(lnp[maxlnprob]), " ".join(map(str, bestpos))))
+        # with open("output/chain_{0:s}.dat".format(fname), "a") as f:
+        #     f.write("{0:s} {1:s}\n".format(str(lnp[maxlnprob]), " ".join(map(str, bestpos))))
 
     print("Done.")
 
@@ -117,11 +120,11 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, fname):
     utilfuncs.plot_out(theta, fname, sampler, samples, ndim)
 
 
-def iterprint(N, bestpos):
+def iterprint(N, bestpos, percomp):
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(bestpos, N)
 
     print('=' * 50)
-    print('System parameters')
+    print('System parameters ({0:f}% complete)'.format(percomp))
     print('-' * 50)
 
     print(
@@ -154,4 +157,4 @@ def iterprint(N, bestpos):
             )
         )
 
-    print('\n')
+    print('\r\n')
