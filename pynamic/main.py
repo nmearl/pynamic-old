@@ -144,14 +144,16 @@ def main(data_file, fit_method, input_file, nwalkers, niterations):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Photometric dynamical modeling code.')
     parser.add_argument('data', help='data file containing detrended light curve')
-    parser.add_argument('-f', '--fit', help='fit method used to minimize (optional)',
+    parser.add_argument('-f', '--fit', help='fit method used to minimize ',
                         choices=['mcmc', 'leastsq', 'nelder', 'lbfgsb', 'anneal', 'powell',
                                  'cg', 'newton', 'cobyla', 'slsqp', 'plot'], default='leastsq')
-    parser.add_argument('-i', '--input', help='input file containing initial parameters (optional)')
-    parser.add_argument('-w', '--walkers', type=int, default=250, type=int,
-                        help='number of walkers if using mcmc fit method (optional)')
+    parser.add_argument('-i', '--input', help='input file containing initial parameters ')
+    parser.add_argument('-w', '--walkers', type=int, default=250,
+                        help='number of walkers if using mcmc fit method ')
     parser.add_argument('-t', '--iterations', type=int, default=500,
-                        help='number of iterations to perform if using mcmc fit method (optional)')
+                        help='number of iterations to perform if using mcmc fit method')
+    parser.add_argument('-c', '--cores', type=int, default=1,
+                        help='number of cores to utilize ')
 
     args = parser.parse_args()
     data_file = args.data
@@ -159,5 +161,6 @@ if __name__ == '__main__':
     input_file = args.input
     nwalkers = args.walkers
     niterations = args.iterations
+    cores = args.cores
 
     main(data_file, fit_method, input_file, nwalkers, niterations)
