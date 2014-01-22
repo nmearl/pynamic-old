@@ -105,7 +105,7 @@ def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspa
         params = read_input(input_file)
     elif syspars:
         print('No initial parameter set specified, randomly sampling parameter space...')
-        N, t0, maxh, orbit_error = syspars
+        N, t0, maxh, orbit_error = map(float, syspars)
         params = get_random_pos(int(N), t0, maxh, orbit_error)
         rpars = True
     else:
@@ -170,6 +170,6 @@ if __name__ == '__main__':
     nwalkers = args.walkers
     niterations = args.iterations
     ncores = args.cores
-    syspars = map(float, args.system)
+    syspars = args.system
 
     main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspars)
