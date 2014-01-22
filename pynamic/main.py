@@ -91,7 +91,7 @@ def plot_model(params, x, y, yerr):
     pylab.show()
 
 
-def main(data_file, fit_method, input_file, nwalkers, niterations, ncores):
+def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspars):
     """The main function mediates the reading of the data and input parameters, and starts the optimization using the
     specified method.
 
@@ -103,31 +103,35 @@ def main(data_file, fit_method, input_file, nwalkers, niterations, ncores):
 
     if input_file:
         params = read_input(input_file)
+    elif syspars:
+        print('No initial parameter set specified, randomly sampling parameter space...')
+        N, t0, maxh, orbit_error = syspars
+        params = get_random_pos(int(N), t0, maxh, orbit_error)
+        rpars = True
     else:
-        print('No input file specified, sampling random parameter space...')
+        print('No initial parameter set specified, randomly sampling parameter space...')
         N = int(raw_input('\tEnter the number of bodies: '))
         t0 = float(raw_input('\tEnter the epoch of coordinates: '))
         maxh = float(raw_input('\tEnter the maximum time step (default: 0.01): '))
         orbit_error = float(raw_input('\tEnter the orbit error tolerance (default: 1e-20): '))
 
         params = get_random_pos(N, t0, maxh, orbit_error)
+        rpars = True
 
     if not fit_method:
-        print('You have no specified a fit method, defaulting to least squares minimization.')
+        print('You have not specified a fit method, defaulting to least squares minimization.')
 
     if '.' in data_file:
         x, y, yerr = read_data(data_file)
 
     n = int(len(x))
 
-    print "Beginning optimization."
-
     time_start = time.time()
 
     if fit_method == 'mcmc':
         hammer.generate(
             params, x[:n], y[:n], yerr[:n],
-            nwalkers, niterations, ncores,
+            nwalkers, niterations, ncores, rpars,
             data_file.split('/')[-1].split('.')[0]
         )
 
@@ -136,7 +140,8 @@ def main(data_file, fit_method, input_file, nwalkers, niterations, ncores):
 
     else:
         minimizer.generate(
-            params, x[:n], y[:n], yerr[:n], fit_method
+            params, x[:n], y[:n], yerr[:n], fit_method,
+            data_file.split('/')[-1].split('.')[0]
         )
 
     print "Total time:", time.time() - time_start
@@ -145,16 +150,18 @@ def main(data_file, fit_method, input_file, nwalkers, niterations, ncores):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Photometric dynamical modeling code.')
     parser.add_argument('data', help='data file containing detrended light curve')
-    parser.add_argument('-f', '--fit', help='fit method used to minimize ',
+    parser.add_argument('-f', '--fit', help='fit method used to minimize',
                         choices=['mcmc', 'leastsq', 'nelder', 'lbfgsb', 'anneal', 'powell',
                                  'cg', 'newton', 'cobyla', 'slsqp', 'plot'], default='leastsq')
-    parser.add_argument('-i', '--input', help='input file containing initial parameters ')
+    parser.add_argument('-i', '--input', help='input file containing initial parameters (overrides --system)')
     parser.add_argument('-w', '--walkers', type=int, default=250,
                         help='number of walkers if using mcmc fit method ')
     parser.add_argument('-t', '--iterations', type=int, default=500,
                         help='number of iterations to perform if using mcmc fit method')
     parser.add_argument('-c', '--cores', type=int, default=1,
-                        help='number of cores to utilize ')
+                        help='number of cores to utilize')
+    parser.add_argument('-s', '--system', nargs=4,
+                        help='four initial system parameters: N, t0, maxh, orbit_error')
 
     args = parser.parse_args()
     data_file = args.data
@@ -163,5 +170,6 @@ if __name__ == '__main__':
     nwalkers = args.walkers
     niterations = args.iterations
     ncores = args.cores
+    syspars = map(float, args.system)
 
-    main(data_file, fit_method, input_file, nwalkers, niterations, ncores)
+    main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspars)

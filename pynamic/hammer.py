@@ -5,6 +5,7 @@ import numpy as np
 import utilfuncs
 import modeler
 import os
+import time
 
 
 # Define the probability function as likelihood * prior.
@@ -48,7 +49,7 @@ def lnprob(theta, x, y, yerr, N, t0, maxh, orbit_error):
     return lp + lnlike(theta, x, y, yerr, N, t0, maxh, orbit_error)
 
 
-def generate(params, x, y, yerr, nwalkers, niterations, ncores, fname):
+def generate(params, x, y, yerr, nwalkers, niterations, ncores, rpars, fname):
     #np.seterr(all='raise')
 
     N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
@@ -66,7 +67,11 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, fname):
 
     # Set up the sampler.
     ndim = len(theta)
-    pos0 = [theta + 1e-4 * np.random.randn(ndim) for i in range(nwalkers)]
+
+    if rpars:
+        pos0 = [[n for m in utilfuncs.random_pos(N) for n in m] for i in range(nwalkers)]
+    else:
+        pos0 = [theta + 1e-4 * np.random.randn(ndim) for i in range(nwalkers)]
 
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(x, y, yerr, N, t0, maxh, orbit_error), threads=ncores)
 
@@ -80,16 +85,19 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, fname):
     f = open("output/chain_{0:s}.dat".format(fname), "w")
     f.close()
 
-    citer = 0.0
+    citer, tlast = 0.0, time.time()
 
     for pos, lnp, state in sampler.sample(pos0, iterations=niterations, storechain=False,
                                           rstate0=np.random.get_state()):
         citer += 1.0
+        tleft = (time.time() - tlast) * (niterations - citer)
+        tlast = time.time()
+
         maxlnprob = np.argmax(lnp)
         bestpos = pos[maxlnprob, :]
 
-        iterprint(N, bestpos, citer / niterations)
-        utilfuncs.report_as_input(bestpos, N, fname)
+        iterprint(N, bestpos, citer / niterations, tleft)
+        utilfuncs.report_as_input(N, t0, maxh, orbit_error, utilfuncs.split_parameters(bestpos, N), fname)
 
         # with open("output/chain_{0:s}.dat".format(fname), "a") as f:
         #     f.write("{0:s} {1:s}\n".format(str(lnp[maxlnprob]), " ".join(map(str, bestpos))))
@@ -116,15 +124,16 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, fname):
     # Produce final model and save the values
     print('Saving final results...')
 
-    utilfuncs.report_out(results, N, fname)
+    utilfuncs.report_out(N, t0, maxh, orbit_error, results, fname)
     utilfuncs.plot_out(theta, fname, sampler, samples, ndim)
 
 
-def iterprint(N, bestpos, percomp):
+def iterprint(N, bestpos, percomp, tleft):
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(bestpos, N)
 
     print('=' * 50)
-    print('System parameters ({0:f}% complete)'.format(percomp))
+    print('System parameters | {0:2.1f}% complete, ~{1} left'.format(
+        percomp * 100, time.strftime('%H:%M:%S', time.gmtime(tleft))))
     print('-' * 50)
 
     print(

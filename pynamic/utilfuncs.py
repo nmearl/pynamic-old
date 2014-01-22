@@ -70,11 +70,15 @@ def plot_out(theta, fname, *args):
             pl.close()
 
 
-def report_out(results, N, fname):
+def report_out(N, t0, maxh, orbit_error, results, fname):
+    results = np.array(results)
+    report_as_input(N, t0, maxh, orbit_error, results[0, :], fname)
+
+    print(results)
+
     GMsun = 2.959122083E-4 # AU**3/day**2
     Rsun = 0.00465116 # AU
 
-    results = split_parameters(results, N)
     names = ['mass', 'radii', 'flux', 'u1', 'u2', 'a', 'e', 'inc', 'om', 'ln', 'ma']
 
     print('Saving results to file...')
@@ -87,11 +91,11 @@ def report_out(results, N, fname):
 
     with open('./output/reports/report_{0}.out'.format(fname), 'w') as f:
         for i in range(len(results)):
-            param = np.array(results[i])
+            param = results[i]
 
             for j in range(len(param)):
 
-                print("{0:8s}_{1} = {2[0]:20.11e} +{2[1]:20.11e} -{2[2]:20.11e}".format(names[i], j, param[j]))
+                print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}\n".format(names[i], j, param[j]))
                 f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}\n".format(names[i], j, param[j]))
 
                 if names[i] == 'mass':
@@ -107,16 +111,19 @@ def report_out(results, N, fname):
                 f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}\n".format(names[i], j, param[j]))
 
 
-def report_as_input(results, N, fname):
-    results = split_parameters(results, N)
-
+def report_as_input(N, t0, maxh, orbit_error, results, fname):
     if not os.path.exists("./output"):
         os.mkdir("./output")
 
     if not os.path.exists("./output/reports"):
         os.mkdir("./output/reports")
 
-    with open('./output/reports/input_out_{0}.out'.format(fname), 'w') as f:
+    with open('./output/reports/input_final_{0}.out'.format(fname), 'w') as f:
+        f.write("{0:d}\n".format(N))
+        f.write("{0:f}\n".format(t0))
+        f.write("{0:f}\n".format(maxh))
+        f.write("{0:e}\n".format(orbit_error))
+
         for i in range(len(results)):
             param = results[i]
 

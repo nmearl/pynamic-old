@@ -86,7 +86,7 @@ def generate(in_params, x, y, yerr, fit_method, fname):
     # params['ln_2'].vary = False
 
     print('Generating maximum likelihood values...')
-    result = minimize(residual, params, args=(x, y, yerr), method=fit_method)
+    results = minimize(residual, params, args=(x, y, yerr), method=fit_method)
 
     # for i in range(1):
     #     print "Run {0}".format(i + 1)
@@ -99,4 +99,4 @@ def generate(in_params, x, y, yerr, fit_method, fname):
 
     # Save the final outputs
     print "Writing report..."
-    utilfuncs.report_out(result, N, fname)
+    utilfuncs.report_as_input(N, t0, maxh, orbit_error, _get_parameters(results.params), fname)
