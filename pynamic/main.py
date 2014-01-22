@@ -1,16 +1,16 @@
 __author__ = 'nmearl'
 
-import sys
 import numpy as np
 import time
 import pylab
 import modeler
 import minimizer
 import hammer
-import kepler
+import utilfuncs
+import argparse
 
 
-def _read_data(data_file):
+def read_data(data_file):
     """Reads in photometric data. File must have at least two columns, error is optional.
 
     @param data_file: Path of file.
@@ -32,7 +32,7 @@ def _read_data(data_file):
     return np.array(data_times), np.array(data_fluxes), np.array(data_yerr)
 
 
-def _read_input(input_file):
+def read_input(input_file):
     """Reads in the formatted input file.
 
     @param input_file: Path of file.
@@ -62,6 +62,11 @@ def _read_input(input_file):
     return N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
 
 
+def get_random_pos(N, t0, maxh, orbit_error):
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.random_pos(N)
+    return N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
+
+
 def plot_model(params, x, y, yerr):
     """Simple plot routine to visualize the modelled input parameters.
 
@@ -86,21 +91,32 @@ def plot_model(params, x, y, yerr):
     pylab.show()
 
 
-def main(input_file, data_file, fit_method):
+def main(data_file, fit_method, input_file, nwalkers, niterations):
     """The main function mediates the reading of the data and input parameters, and starts the optimization using the
     specified method.
 
-    @param input_file: Path to input file.
     @param data_file: Path to data file.
     @param fit_method: Currently: 'min' is least squares optimization, and 'mcmc' is the emcee hammer optimization. The
     'plot' option is used to simply plot the returned model based on the supplied parameters.
+    @param input_file: Path to input file.
     """
-    params = _read_input(input_file)
+
+    if input_file:
+        params = read_input(input_file)
+    else:
+        print('No input file specified, sampling random parameter space...')
+        N = int(raw_input('\tEnter the number of bodies: '))
+        t0 = float(raw_input('\tEnter the epoch of coordinates: '))
+        maxh = float(raw_input('\tEnter the maximum time step (default: 0.01): '))
+        orbit_error = float(raw_input('\tEnter the orbit error tolerance (default: 1e-20): '))
+
+        params = get_random_pos(N, t0, maxh, orbit_error)
+
+    if not fit_method:
+        print('You have no specified a fit method, defaulting to least squares minimization.')
 
     if '.' in data_file:
-        x, y, yerr = _read_data(data_file)
-        # else:
-    #     x, y, yerr = kepler.get_fits_data('5897826', use_pdc=True)
+        x, y, yerr = read_data(data_file)
 
     n = int(len(x))
 
@@ -108,23 +124,40 @@ def main(input_file, data_file, fit_method):
 
     time_start = time.time()
 
-    if fit_method == 'min':
-        minimizer.generate(
-            params, x[:n], y[:n], yerr[:n]
-        )
-
-    elif fit_method == 'mcmc':
+    if fit_method == 'mcmc':
         hammer.generate(
-            params, x[:n], y[:n], yerr[:n], data_file.split('/')[-1].split('.')[0]
+            params, x[:n], y[:n], yerr[:n],
+            nwalkers, niterations, data_file.split('/')[-1].split('.')[0]
         )
 
     elif fit_method == 'plot':
         plot_model(params, x[:n], y[:n], yerr[:n])
 
+    else:
+        minimizer.generate(
+            params, x[:n], y[:n], yerr[:n], fit_method
+        )
+
     print "Total time:", time.time() - time_start
 
 
 if __name__ == '__main__':
-    args = sys.argv[1:]
-    main(args[0], args[1], args[2])
-    # main('./input.dat', './data/kid010020423.Q99', 'ls')
+    parser = argparse.ArgumentParser(description='Photometric dynamical modeling code.')
+    parser.add_argument('data', help='data file containing detrended light curve')
+    parser.add_argument('-f', '--fit', help='fit method used to minimize (optional)',
+                        choices=['mcmc', 'leastsq', 'nelder', 'lbfgsb', 'anneal', 'powell',
+                                 'cg', 'newton', 'cobyla', 'slsqp', 'plot'], default='leastsq')
+    parser.add_argument('-i', '--input', help='input file containing initial parameters (optional)')
+    parser.add_argument('-w', '--walkers', type=int, default=250, type=int,
+                        help='number of walkers if using mcmc fit method (optional)')
+    parser.add_argument('-t', '--iterations', type=int, default=500,
+                        help='number of iterations to perform if using mcmc fit method (optional)')
+
+    args = parser.parse_args()
+    data_file = args.data
+    fit_method = args.fit
+    input_file = args.input
+    nwalkers = args.walkers
+    niterations = args.iterations
+
+    main(data_file, fit_method, input_file, nwalkers, niterations)

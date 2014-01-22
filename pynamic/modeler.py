@@ -40,8 +40,6 @@ def generate(N, t0, maxh, orbit_error, in_times, mass, radii, flux, u1, u2, a, e
     #in_times = np.linspace(in_times[0], in_times[-1], len(in_times))
     fluxes = np.zeros(len(in_times))
 
-    print('\tPassing to Carter code...')
-
     start(
         fluxes,
         N, t0, maxh, orbit_error,
@@ -49,7 +47,5 @@ def generate(N, t0, maxh, orbit_error, in_times, mass, radii, flux, u1, u2, a, e
         np.array(mass), np.array(radii), np.array(flux), np.array(u1), np.array(u2),
         np.array(a), np.array(e), np.array(inc), np.array(om), np.array(ln), np.array(ma)
     )
-
-    print('\tReturning...')
 
     return fluxes

@@ -4,6 +4,23 @@ import numpy as np
 import pylab as pl
 import triangle
 import os
+import random
+
+
+def random_pos(N):
+    masses = [random.uniform(0.0, 0.01) for i in range(N)]
+    radii = [random.uniform(0.0, 0.1) for i in range(N)]
+    fluxes = [random.uniform(0.0, 1.0) for i in range(N)]
+    u1 = [random.uniform(0.0, 1.0) for i in range(N)]
+    u2 = [random.uniform(0.0, 1.0) for i in range(N)]
+    a = [random.uniform(0.0, 1.0) for i in range(N - 1)]
+    e = [random.uniform(0.0, 1.0) for i in range(N - 1)]
+    inc = [random.uniform(0.0, np.pi) for i in range(N - 1)]
+    om = [random.uniform(0.0, 2 * np.pi) for i in range(N - 1)]
+    ln = [random.uniform(0.0, np.pi) for i in range(N - 1)]
+    ma = [random.uniform(0.0, 2 * np.pi) for i in range(N - 1)]
+
+    return masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
 
 
 def split_parameters(theta, N):
@@ -20,44 +37,28 @@ def split_parameters(theta, N):
     return masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
 
 
-def print_out(results, N):
-    names = ['mass', 'radii', 'flux', 'u1', 'u2', 'a', 'e', 'inc', 'om', 'ln', 'ma']
-
-    for i in range(len(results)):
-        param = results[i]
-
-        for j in range(len(param)):
-            # if names[i] == 'mass':
-            #     param /= GMsun
-            #
-            # elif names[i] == 'radius':
-            #     param /= Rsun
-            #
-            # elif any(ang in names[i] for ang in ['inc', 'om', 'ln', 'ma']):
-            #     param = np.rad2deg(param)
-
-            print("{0:8s}_{1} = {2[0]:20.11e} +{2[1]:20.11e} -{2[2]:20.11e}\n".format(names[i], j, param[j]))
-
-
-def plot_out(x, y, model, theta, fname, *args):
+def plot_out(theta, fname, *args):
     print("Generating plots...")
 
     if not os.path.exists("./output"):
         os.mkdir("./output")
+
+    if not os.path.exists("./output/plots"):
+        os.mkdir("./output/plots")
 
     if args:
         sampler, samples, ndim = args
 
         # Plot corner plot
         fig = triangle.corner(samples)
-        fig.savefig("./output/triangle_{0}.eps".format(fname))
+        fig.savefig("./output/plots/triangle_{0}.eps".format(fname))
 
         # Plot paths of walkers
         for i in range(len(theta)):
             pl.clf()
             pl.plot(sampler.chain[:, :, i].T, color="k", alpha=0.4)
             pl.axhline(theta[i], color="r", lw=2)
-            pl.savefig('./output/line_{0}_{1}.png'.format(i, fname))
+            pl.savefig('./output/plots/line_{0}_{1}.png'.format(i, fname))
             #pl.clf()
 
         # Plot value histograms
@@ -67,10 +68,6 @@ def plot_out(x, y, model, theta, fname, *args):
             pl.title("Dimension {0:d}".format(i))
             pl.savefig('./output/plots/dim_{0:d}.eps'.format(i))
             pl.close()
-
-    pl.plot(x, model, 'k+')
-    pl.plot(x, y, 'r')
-    pl.savefig('./output/mcmc_{0}.png'.format(fname))
 
 
 def report_out(results, N, fname):
@@ -85,7 +82,10 @@ def report_out(results, N, fname):
     if not os.path.exists("./output"):
         os.mkdir("./output")
 
-    with open('./output/report_mcmc_{0}.out'.format(fname), 'w') as f:
+    if not os.path.exists("./output/reports"):
+        os.mkdir("./output/reports")
+
+    with open('./output/reports/report_{0}.out'.format(fname), 'w') as f:
         for i in range(len(results)):
             param = np.array(results[i])
 
@@ -105,3 +105,19 @@ def report_out(results, N, fname):
 
                 print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}\n".format(names[i], j, param[j]))
                 f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}\n".format(names[i], j, param[j]))
+
+
+def report_as_input(results, N, fname):
+    results = split_parameters(results, N)
+
+    if not os.path.exists("./output"):
+        os.mkdir("./output")
+
+    if not os.path.exists("./output/reports"):
+        os.mkdir("./output/reports")
+
+    with open('./output/reports/input_out_{0}.out'.format(fname), 'w') as f:
+        for i in range(len(results)):
+            param = results[i]
+
+            f.write('{0:s}\n'.format(' '.join(map(str, param))))
