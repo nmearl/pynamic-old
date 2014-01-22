@@ -91,7 +91,7 @@ def plot_model(params, x, y, yerr):
     pylab.show()
 
 
-def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspars):
+def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspars, rpars):
     """The main function mediates the reading of the data and input parameters, and starts the optimization using the
     specified method.
 
@@ -107,7 +107,6 @@ def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspa
         print('No initial parameter set specified, randomly sampling parameter space...')
         N, t0, maxh, orbit_error = map(float, syspars)
         params = get_random_pos(int(N), t0, maxh, orbit_error)
-        rpars = True
     else:
         print('No initial parameter set specified, randomly sampling parameter space...')
         N = int(raw_input('\tEnter the number of bodies: '))
@@ -116,7 +115,6 @@ def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspa
         orbit_error = float(raw_input('\tEnter the orbit error tolerance (default: 1e-20): '))
 
         params = get_random_pos(N, t0, maxh, orbit_error)
-        rpars = True
 
     if not fit_method:
         print('You have not specified a fit method, defaulting to least squares minimization.')
@@ -171,5 +169,6 @@ if __name__ == '__main__':
     niterations = args.iterations
     ncores = args.cores
     syspars = args.system
+    rpars = True if not fit_method else False
 
-    main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspars)
+    main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspars, rpars)
