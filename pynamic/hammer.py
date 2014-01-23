@@ -49,7 +49,7 @@ def lnprob(theta, x, y, yerr, N, t0, maxh, orbit_error):
     return lp + lnlike(theta, x, y, yerr, N, t0, maxh, orbit_error)
 
 
-def generate(params, x, y, yerr, nwalkers, niterations, ncores, rpars, fname):
+def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname):
     #np.seterr(all='raise')
 
     N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
@@ -68,7 +68,7 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, rpars, fname):
     # Set up the sampler.
     ndim = len(theta)
 
-    if rpars:
+    if randpars:
         pos0 = [[n for m in utilfuncs.random_pos(N) for n in m] for i in range(nwalkers)]
     else:
         pos0 = [theta + 1e-4 * np.random.randn(ndim) for i in range(nwalkers)]
@@ -85,10 +85,10 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, rpars, fname):
     f = open("output/chain_{0:s}.dat".format(fname), "w")
     f.close()
 
+    # Setup some values for tracking time and completion
     citer, tlast, tsum = 0.0, time.time(), 0.0
 
-    for pos, lnp, state in sampler.sample(pos0, iterations=niterations, storechain=False,
-                                          rstate0=np.random.get_state()):
+    for pos, lnp, state in sampler.sample(pos0, iterations=niterations, storechain=True):
         citer += 1.0
         tsum += (time.time() - tlast)
         tleft = tsum / citer * (niterations - citer)
@@ -99,11 +99,6 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, rpars, fname):
 
         iterprint(N, bestpos, citer / niterations, tleft)
         utilfuncs.report_as_input(N, t0, maxh, orbit_error, utilfuncs.split_parameters(bestpos, N), fname)
-
-        # with open("output/chain_{0:s}.dat".format(fname), "a") as f:
-        #     f.write("{0:s} {1:s}\n".format(str(lnp[maxlnprob]), " ".join(map(str, bestpos))))
-
-    print("Done.")
 
     # Remove 'burn in' region
     print('Burning in; creating sampler chain...')
@@ -119,8 +114,6 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, rpars, fname):
         zip(*np.percentile(samples, [16, 50, 84],
                            axis=0))
     )
-
-    print(results)
 
     # Produce final model and save the values
     print('Saving final results...')

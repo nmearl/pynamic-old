@@ -24,7 +24,7 @@ def random_pos(N):
 
 
 def split_parameters(theta, N):
-    theta = map(float, theta)
+    # theta = map(float, theta)
     sys_params, ind_params = theta[:5 * N], theta[5 * N:]
 
     masses, radii, fluxes, u1, u2 = [np.array(sys_params[i:N + i]) for i in range(0, len(sys_params), N)]
@@ -51,7 +51,7 @@ def plot_out(theta, fname, *args):
 
         # Plot corner plot
         fig = triangle.corner(samples)
-        fig.savefig("./output/plots/triangle_{0}.eps".format(fname))
+        fig.savefig("./output/plots/triangle_{0}.png".format(fname))
 
         # Plot paths of walkers
         for i in range(len(theta)):
@@ -66,15 +66,16 @@ def plot_out(theta, fname, *args):
             pl.figure()
             pl.hist(sampler.flatchain[:, i], 100, color="k", histtype="step")
             pl.title("Dimension {0:d}".format(i))
-            pl.savefig('./output/plots/dim_{0:d}.eps'.format(i))
+            pl.savefig('./output/plots/dim_{0:d}.png'.format(i))
             pl.close()
 
 
 def report_out(N, t0, maxh, orbit_error, results, fname):
     results = np.array(results)
-    report_as_input(N, t0, maxh, orbit_error, results[0, :], fname)
+    report_as_input(N, t0, maxh, orbit_error, split_parameters(results[:, 0], N), fname)
 
     print(results)
+    results = split_parameters(results, N)
 
     GMsun = 2.959122083E-4 # AU**3/day**2
     Rsun = 0.00465116 # AU
@@ -94,21 +95,25 @@ def report_out(N, t0, maxh, orbit_error, results, fname):
             param = results[i]
 
             for j in range(len(param)):
+                print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
+                f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
 
-                print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}\n".format(names[i], j, param[j]))
-                f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}\n".format(names[i], j, param[j]))
+            print('')
 
-                if names[i] == 'mass':
-                    param /= GMsun
+            if names[i] == 'mass':
+                param /= GMsun
 
-                elif names[i] == 'radii':
-                    param /= Rsun
+            elif names[i] == 'radii':
+                param /= Rsun
 
-                elif any(ang in names[i] for ang in ['inc', 'om', 'ln', 'ma']):
-                    param = np.rad2deg(param)
+            elif any(ang in names[i] for ang in ['inc', 'om', 'ln', 'ma']):
+                param = np.rad2deg(param)
 
-                print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}\n".format(names[i], j, param[j]))
-                f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}\n".format(names[i], j, param[j]))
+            print('')
+
+            for j in range(len(param)):
+                print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
+                f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
 
 
 def report_as_input(N, t0, maxh, orbit_error, results, fname):

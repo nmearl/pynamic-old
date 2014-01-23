@@ -91,7 +91,7 @@ def plot_model(params, x, y, yerr):
     pylab.show()
 
 
-def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspars, rpars):
+def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspars, randpars):
     """The main function mediates the reading of the data and input parameters, and starts the optimization using the
     specified method.
 
@@ -129,7 +129,7 @@ def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspa
     if fit_method == 'mcmc':
         hammer.generate(
             params, x[:n], y[:n], yerr[:n],
-            nwalkers, niterations, ncores, rpars,
+            nwalkers, niterations, ncores, randpars,
             data_file.split('/')[-1].split('.')[0]
         )
 
@@ -169,6 +169,6 @@ if __name__ == '__main__':
     niterations = args.iterations
     ncores = args.cores
     syspars = args.system
-    rpars = True if not fit_method else False
+    randpars = True if not fit_method else False
 
-    main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspars, rpars)
+    main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspars, randpars)
