@@ -23,7 +23,7 @@ def lnprior(theta, N):
         and len(om[(om > (2.0 * np.pi)) | (om < 0.0)]) == 0 \
         and len(ln[(ln > np.pi) | (ln < 0.0)]) == 0 \
         and len(ma[(ma > (2.0 * np.pi)) | (ma < 0.0)]) == 0 \
-        and np.all(a[1:] >= a[:-1]):
+        and np.all(a[0:] >= a[:-1]):
         return 0.0
     return -np.inf
 
@@ -156,7 +156,7 @@ def iterprint(N, bestpos, percomp, tleft):
     for i in range(N - 1):
         print(
             '{0:11s} {1:1.5e} {2:1.5e} {3:1.5e} {4:1.5e} {5:1.5e} {6:1.5e}'.format(
-                str(i + 2), a[i - 1], e[i - 1], inc[i - 1], om[i - 1], ln[i - 1], ma[i - 1]
+                str(i + 2), a[i], e[i], inc[i], om[i], ln[i], ma[i]
             )
         )
 

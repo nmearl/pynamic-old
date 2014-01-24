@@ -13,7 +13,7 @@ def random_pos(N):
     fluxes = [random.uniform(0.0, 1.0) for i in range(N)]
     u1 = [random.uniform(0.0, 1.0) for i in range(N)]
     u2 = [random.uniform(0.0, 1.0) for i in range(N)]
-    a = [random.uniform(0.0, 1.0) for i in range(N - 1)]
+    a = sorted([random.uniform(0.0, 1.0) for i in range(N - 1)])
     e = [random.uniform(0.0, 1.0) for i in range(N - 1)]
     inc = [random.uniform(0.0, np.pi) for i in range(N - 1)]
     om = [random.uniform(0.0, 2 * np.pi) for i in range(N - 1)]
