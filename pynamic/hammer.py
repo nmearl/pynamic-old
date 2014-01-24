@@ -22,8 +22,8 @@ def lnprior(theta, N):
         and len(inc[(inc > np.pi) | (inc < 0.0)]) == 0 \
         and len(om[(om > (2.0 * np.pi)) | (om < 0.0)]) == 0 \
         and len(ln[(ln > np.pi) | (ln < 0.0)]) == 0 \
-        and len(ma[(ma > (2.0 * np.pi)) | (ma < 0.0)]) == 0:
-
+        and len(ma[(ma > (2.0 * np.pi)) | (ma < 0.0)]) == 0 \
+        and np.all(a[1:] >= a[:-1]):
         return 0.0
     return -np.inf
 
