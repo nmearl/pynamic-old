@@ -23,7 +23,7 @@ def lnprior(theta, N):
         and len(om[(om > (2.0 * np.pi)) | (om < 0.0)]) == 0 \
         and len(ln[(ln > np.pi) | (ln < 0.0)]) == 0 \
         and len(ma[(ma > (2.0 * np.pi)) | (ma < 0.0)]) == 0 \
-        and np.all(a[0:] >= a[:-1]):
+        and np.all(a[1:] >= a[:-1]):
         return 0.0
     return -np.inf
 
@@ -71,7 +71,8 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
     if randpars:
         pos0 = [[n for m in utilfuncs.random_pos(N) for n in m] for i in range(nwalkers)]
     else:
-        pos0 = [theta + 1e-4 * np.random.randn(ndim) for i in range(nwalkers)]
+        theta[theta == 0.0] += (np.ones(len(theta))[theta == 0.0] * 0.01)
+        pos0 = [theta + theta * 0.001 * abs(np.random.randn(ndim)) for i in range(nwalkers)]
 
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(x, y, yerr, N, t0, maxh, orbit_error), threads=ncores)
 

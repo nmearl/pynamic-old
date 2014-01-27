@@ -66,7 +66,7 @@ def plot_out(theta, fname, *args):
             pl.figure()
             pl.hist(sampler.flatchain[:, i], 100, color="k", histtype="step")
             pl.title("Dimension {0:d}".format(i))
-            pl.savefig('./output/plots/dim_{0:d}.png'.format(i))
+            pl.savefig('./output/plots/dim_{0:d}_{1}.png'.format(i, fname))
             pl.close()
 
 
@@ -98,8 +98,6 @@ def report_out(N, t0, maxh, orbit_error, results, fname):
                 print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
                 f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
 
-            print('')
-
             if names[i] == 'mass':
                 param /= GMsun
 
@@ -114,6 +112,8 @@ def report_out(N, t0, maxh, orbit_error, results, fname):
             for j in range(len(param)):
                 print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
                 f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
+
+            print('')
 
 
 def report_as_input(N, t0, maxh, orbit_error, results, fname):

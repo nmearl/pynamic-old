@@ -2,6 +2,9 @@ __author__ = 'nmearl'
 
 import numpy as np
 import time
+import matplotlib
+
+matplotlib.use('agg')
 import pylab
 import modeler
 import minimizer
