@@ -8,18 +8,17 @@ import random
 
 
 def random_pos(N):
-    masses = [random.uniform(0.0, 0.01) for i in range(N)]
-    radii = [random.uniform(0.0, 0.1) for i in range(N)]
-    fluxes = [random.uniform(0.0, 1.0) for i in range(N)]
-    u1 = [random.uniform(0.0, 1.0) for i in range(N)]
-    u2 = [random.uniform(0.0, 1.0) for i in range(N)]
-    a = sorted([random.uniform(0.0, 1.0) for i in range(N - 1)])
-    e = [random.uniform(0.0, 1.0) for i in range(N - 1)]
-    inc = [random.uniform(0.0, np.pi) for i in range(N - 1)]
-    om = [random.uniform(0.0, 2 * np.pi) for i in range(N - 1)]
-    ln = [random.uniform(0.0, np.pi) for i in range(N - 1)]
-    ma = [random.uniform(0.0, 2 * np.pi) for i in range(N - 1)]
-
+    masses = np.random.uniform(0.0, 0.01, N)
+    radii = np.random.uniform(0.0, 0.1, N)
+    fluxes = np.random.uniform(0.0, 1.0, N)
+    u1 = np.random.uniform(0.0, 1.0, N)
+    u2 = np.random.uniform(0.0, 1.0, N)
+    a = sorted(np.random.uniform(0.0, 1.0, N - 1))
+    e = np.random.uniform(0.0, 1.0, N - 1)
+    inc = np.random.uniform(0.0, np.pi, N - 1)
+    om = np.random.uniform(0.0, 2 * np.pi, N - 1)
+    ln = np.random.uniform(0.0, np.pi, N - 1)
+    ma = np.random.uniform(0.0, 2 * np.pi, N - 1)
     return masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
 
 

@@ -172,6 +172,6 @@ if __name__ == '__main__':
     niterations = args.iterations
     ncores = args.cores
     syspars = args.system
-    randpars = True if not fit_method else False
+    randpars = True if not input_file else False
 
     main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspars, randpars)

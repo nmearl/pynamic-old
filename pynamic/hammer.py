@@ -53,7 +53,7 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
     #np.seterr(all='raise')
 
     N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
-    theta = np.array(masses + radii + fluxes + u1 + u2 + a + e + inc + om + ln + ma)
+    theta = np.concatenate(masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma)
     yerr = np.array(yerr)
 
     # print("Searching for maximum likelihood values...")
@@ -69,10 +69,10 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
     ndim = len(theta)
 
     if randpars:
-        pos0 = [[n for m in utilfuncs.random_pos(N) for n in m] for i in range(nwalkers)]
+        pos0 = [np.concatenate(utilfuncs.random_pos(N)) for i in range(nwalkers)]
     else:
-        theta[theta == 0.0] += (np.ones(len(theta))[theta == 0.0] * 0.01)
-        pos0 = [theta + theta * 0.001 * abs(np.random.randn(ndim)) for i in range(nwalkers)]
+        theta[theta == 0.0] += np.ones(len(theta))[theta == 0.0]
+        pos0 = [theta + theta * 0.01 * np.random.randn(ndim) for i in range(nwalkers)]
 
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(x, y, yerr, N, t0, maxh, orbit_error), threads=ncores)
 
