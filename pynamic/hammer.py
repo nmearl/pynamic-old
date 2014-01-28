@@ -53,7 +53,7 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
     #np.seterr(all='raise')
 
     N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
-    theta = np.concatenate(masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma)
+    theta = np.concatenate((masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma))
     yerr = np.array(yerr)
 
     # print("Searching for maximum likelihood values...")
