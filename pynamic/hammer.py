@@ -12,12 +12,12 @@ import time
 def lnprior(theta, N):
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(theta, N)
 
-    if len(masses[(masses <= 0.0) | (masses > 0.01)]) == 0 \
-        and len(radii[(radii <= 0.0) | (radii > 0.1)]) == 0 \
+    if len(masses[(masses <= 0.0) | (masses > 0.1)]) == 0 \
+        and len(radii[(radii <= 0.0) | (radii > 1.0)]) == 0 \
         and len(fluxes[(fluxes > 1.0) | (fluxes < 0.0)]) == 0 \
         and len(u1[(u1 > 1.0) | (u1 < 0.0)]) == 0 \
         and len(u2[(u2 > 1.0) | (u2 < 0.0)]) == 0 \
-        and len(a[(a < 0.0) | (a > 1.0)]) == 0 \
+        and len(a[(a < 0.0) | (a > 100.0)]) == 0 \
         and len(e[(e > 1.0) | (e < 0.0)]) == 0 \
         and len(inc[(inc > np.pi) | (inc < 0.0)]) == 0 \
         and len(om[(om > (2.0 * np.pi)) | (om < 0.0)]) == 0 \

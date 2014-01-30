@@ -8,12 +8,12 @@ import random
 
 
 def random_pos(N):
-    masses = np.random.uniform(0.0, 0.01, N)
-    radii = np.random.uniform(0.0, 0.1, N)
+    masses = np.random.uniform(0.0, 0.1, N)
+    radii = np.random.uniform(0.0, 1.0, N)
     fluxes = np.random.uniform(0.0, 1.0, N)
     u1 = np.random.uniform(0.0, 1.0, N)
     u2 = np.random.uniform(0.0, 1.0, N)
-    a = sorted(np.random.uniform(0.0, 1.0, N - 1))
+    a = sorted(np.random.uniform(0.0, 100.0, N - 1))
     e = np.random.uniform(0.0, 1.0, N - 1)
     inc = np.random.uniform(0.0, np.pi, N - 1)
     om = np.random.uniform(0.0, 2 * np.pi, N - 1)
