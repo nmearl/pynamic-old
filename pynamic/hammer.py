@@ -20,8 +20,8 @@ def lnprior(theta, N):
         and len(a[(a < 0.0) | (a > 100.0)]) == 0 \
         and len(e[(e > 1.0) | (e < 0.0)]) == 0 \
         and len(inc[(inc > np.pi) | (inc < 0.0)]) == 0 \
-        and len(om[(om > (2.0 * np.pi)) | (om < 0.0)]) == 0 \
-        and len(ln[(ln > np.pi) | (ln < 0.0)]) == 0 \
+        and len(om[(om > (2.0 * np.pi)) | (om < (-2.0 * np.pi))]) == 0 \
+        and len(ln[(ln > np.pi) | (ln < -np.pi)]) == 0 \
         and len(ma[(ma > (2.0 * np.pi)) | (ma < 0.0)]) == 0 \
         and np.all(a[1:] >= a[:-1]):
         return 0.0
@@ -38,8 +38,10 @@ def lnlike(theta, x, y, yerr, N, t0, maxh, orbit_error):
         a, e, inc, om, ln, ma
     )
 
-    inv_sigma2 = 1.0 / (yerr ** 2 + model ** 2)# * np.exp(2.0))
-    return -0.5 * (np.sum((y - model) ** 2 * inv_sigma2 - np.log(inv_sigma2)))
+    # inv_sigma2 = 1.0 / (yerr ** 2 + model ** 2)# * np.exp(2.0))
+    # return -0.5 * (np.sum((y - model) ** 2 * inv_sigma2 - np.log(inv_sigma2)))
+
+    return -np.sum(((y - model) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6))
 
 
 def lnprob(theta, x, y, yerr, N, t0, maxh, orbit_error):
@@ -71,7 +73,7 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
     if randpars:
         pos0 = [np.concatenate(utilfuncs.random_pos(N)) for i in range(nwalkers)]
     else:
-        theta[theta == 0.0] += np.ones(len(theta))[theta == 0.0]
+        # theta[theta == 0.0] += np.ones(len(theta))[theta == 0.0]
         pos0 = [theta + theta * 0.01 * np.random.randn(ndim) for i in range(nwalkers)]
 
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(x, y, yerr, N, t0, maxh, orbit_error), threads=ncores)
@@ -98,7 +100,7 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
         maxlnprob = np.argmax(lnp)
         bestpos = pos[maxlnprob, :]
 
-        iterprint(N, bestpos, citer / niterations, tleft)
+        iterprint(N, bestpos, lnp[maxlnprob], citer / niterations, tleft)
         utilfuncs.report_as_input(N, t0, maxh, orbit_error, utilfuncs.split_parameters(bestpos, N), fname)
 
     # Remove 'burn in' region
@@ -123,14 +125,15 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
     utilfuncs.plot_out(theta, fname, sampler, samples, ndim)
 
 
-def iterprint(N, bestpos, percomp, tleft):
+def iterprint(N, bestpos, maxlnp, percomp, tleft):
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(bestpos, N)
 
     print('=' * 50)
-    print('System parameters | {0:2.1f}% complete, ~{1} left'.format(
-        percomp * 100, time.strftime('%H:%M:%S', time.gmtime(tleft))))
+    print('Probability: {0} | {1:2.1f}% complete, ~{2} left'.format(
+        maxlnp, percomp * 100, time.strftime('%H:%M:%S', time.gmtime(tleft))))
     print('-' * 50)
-
+    print('System parameters')
+    print('-' * 50)
     print(
         '{0:11s} {1:11s} {2:11s} {3:11s} {4:11s} {5:11s} '.format(
             'Body', 'Mass', 'Radius', 'Flux', 'u1', 'u2'
@@ -161,4 +164,4 @@ def iterprint(N, bestpos, percomp, tleft):
             )
         )
 
-    print('\r\n')
+    print()

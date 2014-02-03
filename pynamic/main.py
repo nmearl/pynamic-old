@@ -2,9 +2,8 @@ __author__ = 'nmearl'
 
 import numpy as np
 import time
-import matplotlib
-
-matplotlib.use('agg')
+# import matplotlib
+# matplotlib.use('agg')
 import pylab
 import modeler
 import minimizer
@@ -80,7 +79,7 @@ def plot_model(params, x, y, yerr):
     """
     N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
 
-    y_mod = modeler.generate(
+    model = modeler.generate(
         N, t0,
         maxh, orbit_error,
         x,
@@ -88,8 +87,12 @@ def plot_model(params, x, y, yerr):
         a, e, inc, om, ln, ma
     )
 
+    print("Reduced chi-square:", np.sum(((y - model) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6)))
+    inv_sigma2 = 1.0 / (yerr ** 2 + model ** 2)# * np.exp(2.0))
+    print("Custom optimized value:", -0.5 * (np.sum((y - model) ** 2 * inv_sigma2 - np.log(inv_sigma2))))
+
     pylab.plot(x, y, 'k+')
-    pylab.plot(x, y_mod, 'r+')
+    pylab.plot(x, model, 'r+')
 
     pylab.show()
 
