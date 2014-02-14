@@ -6,6 +6,7 @@ from numpy.ctypeslib import ndpointer
 import sys
 from multiprocessing import Pool
 
+
 if sys.platform == 'darwin':
     # print("It seems you're on mac, loading mac libraries...")
     lib = ctypes.cdll.LoadLibrary('./lib/photodynam-mac.so')
@@ -79,6 +80,7 @@ def multigenerate(ncores, N, t0, maxh, orbit_error, in_times, mass, radii, flux,
 
 
 def generate(N, t0, maxh, orbit_error, in_times, mass, radii, flux, u1, u2, a, e, inc, om, ln, ma):
+
     fluxes = np.zeros(len(in_times))
 
     start(

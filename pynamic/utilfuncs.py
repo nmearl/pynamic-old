@@ -37,22 +37,23 @@ def plot_out(theta, fname, *args):
     if not os.path.exists("./output"):
         os.mkdir("./output")
 
-    if not os.path.exists("./output/plots"):
-        os.mkdir("./output/plots")
+    if not os.path.exists("./output/{0}".format(fname)):
+        os.mkdir("./output/{0}".format(fname))
+        os.mkdir("./output/{0}/plots".format(fname))
 
     if args:
         sampler, samples, ndim = args
 
         # Plot corner plot
         fig = triangle.corner(samples)
-        fig.savefig("./output/plots/triangle_{0}.png".format(fname))
+        fig.savefig("./output/{0}/plots/triangle.png".format(fname))
 
         # Plot paths of walkers
         for i in range(len(theta)):
             pl.clf()
             pl.plot(sampler.chain[:, :, i].T, color="k", alpha=0.4)
             pl.axhline(theta[i], color="r", lw=2)
-            pl.savefig('./output/plots/line_{0}_{1}.png'.format(i, fname))
+            pl.savefig('./output/{0}/plots/line_{1}.png'.format(fname, i))
             #pl.clf()
 
         # Plot value histograms
@@ -60,7 +61,7 @@ def plot_out(theta, fname, *args):
             pl.figure()
             pl.hist(sampler.flatchain[:, i], 100, color="k", histtype="step")
             pl.title("Dimension {0:d}".format(i))
-            pl.savefig('./output/plots/dim_{0:d}_{1}.png'.format(i, fname))
+            pl.savefig('./output/{0}/plots/dim_{1:d}.png'.format(fname, i))
             pl.close()
 
 
@@ -81,10 +82,11 @@ def report_out(N, t0, maxh, orbit_error, results, fname):
     if not os.path.exists("./output"):
         os.mkdir("./output")
 
-    if not os.path.exists("./output/reports"):
-        os.mkdir("./output/reports")
+    if not os.path.exists("./output/{0}".format(fname)):
+        os.mkdir("./output/{0}".format(fname))
+        os.mkdir("./output/{0}/reports".format(fname))
 
-    with open('./output/reports/report_{0}.out'.format(fname), 'w') as f:
+    with open('./output/{0}/reports/report.out'.format(fname), 'w') as f:
         for i in range(len(results)):
             param = results[i]
 
@@ -114,10 +116,11 @@ def report_as_input(N, t0, maxh, orbit_error, results, fname):
     if not os.path.exists("./output"):
         os.mkdir("./output")
 
-    if not os.path.exists("./output/reports"):
-        os.mkdir("./output/reports")
+    if not os.path.exists("./output/{0}".format(fname)):
+        os.mkdir("./output/{0}".format(fname))
+        os.mkdir("./output/{0}/reports".format(fname))
 
-    with open('./output/reports/input_final_{0}.out'.format(fname), 'w') as f:
+    with open('./output/{0}/reports/input_final_{1}.out'.format(fname, fname), 'w') as f:
         f.write("{0:d}\n".format(N))
         f.write("{0:f}\n".format(t0))
         f.write("{0:f}\n".format(maxh))

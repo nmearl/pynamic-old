@@ -38,10 +38,9 @@ def lnlike(theta, x, y, yerr, N, t0, maxh, orbit_error):
         a, e, inc, om, ln, ma
     )
 
-    # inv_sigma2 = 1.0 / (yerr ** 2 + model ** 2)# * np.exp(2.0))
-    # return -0.5 * (np.sum((y - model) ** 2 * inv_sigma2 - np.log(inv_sigma2)))
-
-    return -np.sum(((y - model) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6))
+    lnf = -10.0  # Natural log of the underestimation fraction
+    inv_sigma2 = 1.0 / (yerr ** 2)  #  + model ** 2)# * np.exp(2 * lnf))
+    return -0.5 * (np.sum((y - model) ** 2 * inv_sigma2 - np.log(inv_sigma2)))
 
 
 def lnprob(theta, x, y, yerr, N, t0, maxh, orbit_error):
@@ -85,9 +84,6 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
     if not os.path.exists("./output"):
         os.mkdir("./output")
 
-    f = open("output/chain_{0:s}.dat".format(fname), "w")
-    f.close()
-
     # Setup some values for tracking time and completion
     citer, tlast, tsum = 0.0, time.time(), 0.0
 
@@ -129,7 +125,7 @@ def iterprint(N, bestpos, maxlnp, percomp, tleft):
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(bestpos, N)
 
     print('=' * 50)
-    print('Probability: {0} | {1:2.1f}% complete, ~{2} left'.format(
+    print('Liklihood: {0} | {1:2.1f}% complete, ~{2} left'.format(
         maxlnp, percomp * 100, time.strftime('%H:%M:%S', time.gmtime(tleft))))
     print('-' * 50)
     print('System parameters')
