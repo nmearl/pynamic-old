@@ -57,18 +57,10 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
     theta = np.concatenate((masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma))
     yerr = np.array(yerr)
 
-    # print("Searching for maximum likelihood values...")
-
-    # Find the maximum likelihood value.
-    # chi2 = lambda *args: -2 * lnlike(*args)
-    # result = op.minimize(
-    #     chi2, theta,
-    #     args=(x, y, yerr, N, t0, maxh, orbit_error)
-    # )
-
     # Set up the sampler.
     ndim = len(theta)
 
+    # Generate parameters if no input file; give non zero amount to parameters with 0.0 value if given input file
     if randpars:
         pos0 = [np.concatenate(utilfuncs.random_pos(N)) for i in range(nwalkers)]
     else:
@@ -85,18 +77,20 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
         os.mkdir("./output")
 
     # Setup some values for tracking time and completion
-    citer, tlast, tsum = 0.0, time.time(), 0.0
+    citer, tlast, tsum = 0.0, time.time(), []
 
     for pos, lnp, state in sampler.sample(pos0, iterations=niterations, storechain=True):
         citer += 1.0
-        tsum += (time.time() - tlast)
-        tleft = tsum / citer * (niterations - citer)
+        tsum.append(time.time() - tlast)
+        tleft = np.median(tsum) * (niterations - citer)
         tlast = time.time()
 
         maxlnprob = np.argmax(lnp)
         bestpos = pos[maxlnprob, :]
 
-        iterprint(N, bestpos, lnp[maxlnprob], citer / niterations, tleft)
+        redchisqr = utilfuncs.reduced_chisqr(bestpos, x, y, yerr, N, t0, maxh, orbit_error)
+
+        iterprint(N, bestpos, lnp[maxlnprob], redchisqr, citer / niterations, tleft)
         utilfuncs.report_as_input(N, t0, maxh, orbit_error, utilfuncs.split_parameters(bestpos, N), fname)
 
     # Remove 'burn in' region
@@ -121,15 +115,15 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
     utilfuncs.plot_out(theta, fname, sampler, samples, ndim)
 
 
-def iterprint(N, bestpos, maxlnp, percomp, tleft):
+def iterprint(N, bestpos, maxlnp, redchisqr, percomp, tleft):
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(bestpos, N)
 
-    print('=' * 50)
-    print('Liklihood: {0} | {1:2.1f}% complete, ~{2} left'.format(
-        maxlnp, percomp * 100, time.strftime('%H:%M:%S', time.gmtime(tleft))))
-    print('-' * 50)
+    print('=' * 80)
+    print('Likelihood: {0}, Red. Chi: {1} | {2:2.1f}% complete, ~{3} left'.format(
+        maxlnp, redchisqr, percomp * 100, time.strftime('%H:%M:%S', time.gmtime(tleft))))
+    print('-' * 80)
     print('System parameters')
-    print('-' * 50)
+    print('-' * 80)
     print(
         '{0:11s} {1:11s} {2:11s} {3:11s} {4:11s} {5:11s} '.format(
             'Body', 'Mass', 'Radius', 'Flux', 'u1', 'u2'
@@ -143,9 +137,9 @@ def iterprint(N, bestpos, maxlnp, percomp, tleft):
             )
         )
 
-    print('-' * 50)
+    print('-' * 80)
     print('Keplerian parameters')
-    print('-' * 50)
+    print('-' * 80)
 
     print(
         '{0:11s} {1:11s} {2:11s} {3:11s} {4:11s} {5:11s} {6:11s}'.format(

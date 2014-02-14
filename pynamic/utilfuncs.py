@@ -4,7 +4,7 @@ import numpy as np
 import pylab as pl
 import triangle
 import os
-import random
+import modeler
 
 
 def random_pos(N):
@@ -29,6 +29,19 @@ def split_parameters(theta, N):
     a, e, inc, om, ln, ma = [np.array(ind_params[i:N - 1 + i]) for i in range(0, len(ind_params), N - 1)]
 
     return masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
+
+
+def reduced_chisqr(theta, x, y, yerr, N, t0, maxh, orbit_error):
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = split_parameters(theta, N)
+
+    model = modeler.generate(
+        N, t0, maxh, orbit_error,
+        x,
+        masses, radii, fluxes, u1, u2,
+        a, e, inc, om, ln, ma
+    )
+
+    return np.sum(((y - model) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6))
 
 
 def plot_out(theta, fname, *args):
