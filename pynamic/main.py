@@ -10,6 +10,7 @@ import minimizer
 import hammer
 import utilfuncs
 import argparse
+import re
 
 
 def read_data(data_file):
@@ -132,11 +133,15 @@ def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspa
 
     time_start = time.time()
 
+    fname = data_file.split('/')[-1].split('.')[0]
+    fname = int(re.match(r'\d+', fname).group())
+    print(fname)
+
     if fit_method == 'mcmc':
         hammer.generate(
             params, x[:n], y[:n], yerr[:n],
             nwalkers, niterations, ncores, randpars,
-            data_file.split('/')[-1].split('.')[0]
+            fname
         )
 
     elif fit_method == 'plot':
@@ -145,7 +150,7 @@ def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspa
     else:
         minimizer.generate(
             params, x[:n], y[:n], yerr[:n], fit_method,
-            data_file.split('/')[-1].split('.')[0]
+            fname
         )
 
     print "Total time:", time.time() - time_start

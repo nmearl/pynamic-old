@@ -115,7 +115,7 @@ void start(double *out_fluxes, int N, double t0, double maxh, double orbit_error
     #pragma omp parallel for
 	for (int i = 0; i < in_times_size; i++) {
 	    t = in_times[i];
-        status = state(t,maxh,orbit_error,1.0e-10);
+        status = state(t,maxh,orbit_error,1.0e-6);
 
 	    // Now get the flux at the new time
         out_fluxes[i] = occultn(state.getBaryLT(),radii,u1,u2,flux,N);

@@ -52,6 +52,8 @@ def plot_out(theta, fname, *args):
 
     if not os.path.exists("./output/{0}".format(fname)):
         os.mkdir("./output/{0}".format(fname))
+
+    if not os.path.exists("./output/{0}".format(fname)):
         os.mkdir("./output/{0}/plots".format(fname))
 
     if args:
@@ -97,6 +99,8 @@ def report_out(N, t0, maxh, orbit_error, results, fname):
 
     if not os.path.exists("./output/{0}".format(fname)):
         os.mkdir("./output/{0}".format(fname))
+
+    if not os.path.exists("./output/{0}/reports".format(fname)):
         os.mkdir("./output/{0}/reports".format(fname))
 
     with open('./output/{0}/reports/report.out'.format(fname), 'w') as f:
