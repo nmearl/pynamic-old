@@ -134,8 +134,12 @@ def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspa
     time_start = time.time()
 
     fname = data_file.split('/')[-1].split('.')[0]
-    fname = int(re.match(r'\d+', fname).group())
-    print(fname)
+
+    try:
+        fname = re.findall(r'\d+', fname)[0]
+        fname = "{0:09d}".format(int(fname))
+    except:
+        print('Unable to extract KID, falling back to data file name.')
 
     if fit_method == 'mcmc':
         hammer.generate(
