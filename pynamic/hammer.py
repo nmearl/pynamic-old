@@ -64,7 +64,7 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
     if randpars:
         pos0 = [np.concatenate(utilfuncs.random_pos(N)) for i in range(nwalkers)]
     else:
-        theta[theta == 0.0] += np.ones(len(theta))[theta == 0.0] * 1.0e-8
+        theta[theta == 0.0] = 1.0e-6
         pos0 = [theta + theta * 0.01 * np.random.randn(ndim) for i in range(nwalkers)]
 
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(x, y, yerr, N, t0, maxh, orbit_error), threads=ncores)
@@ -82,7 +82,7 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
     for pos, lnp, state in sampler.sample(pos0, iterations=niterations, storechain=True):
         citer += 1.0
         tsum.append(time.time() - tlast)
-        tleft = np.median(tsum) * (niterations - citer)
+        tleft = np.mean(tsum) * (niterations - citer)
         tlast = time.time()
 
         maxlnprob = np.argmax(lnp)
@@ -90,7 +90,7 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
 
         redchisqr = utilfuncs.reduced_chisqr(bestpos, x, y, yerr, N, t0, maxh, orbit_error)
 
-        iterprint(N, bestpos, lnp[maxlnprob], redchisqr, citer / niterations, tleft)
+        utilfuncs.iterprint(N, bestpos, lnp[maxlnprob], redchisqr, citer / niterations, tleft)
         utilfuncs.report_as_input(N, t0, maxh, orbit_error, utilfuncs.split_parameters(bestpos, N), fname)
 
     # Remove 'burn in' region
@@ -113,45 +113,3 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
 
     utilfuncs.report_out(N, t0, maxh, orbit_error, results, fname)
     utilfuncs.plot_out(theta, fname, sampler, samples, ndim)
-
-
-def iterprint(N, bestpos, maxlnp, redchisqr, percomp, tleft):
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(bestpos, N)
-
-    print('=' * 80)
-    print('Likelihood: {0}, Red. Chi: {1} | {2:2.1f}% complete, ~{3} left'.format(
-        maxlnp, redchisqr, percomp * 100, time.strftime('%H:%M:%S', time.gmtime(tleft))))
-    print('-' * 80)
-    print('System parameters')
-    print('-' * 80)
-    print(
-        '{0:11s} {1:11s} {2:11s} {3:11s} {4:11s} {5:11s} '.format(
-            'Body', 'Mass', 'Radius', 'Flux', 'u1', 'u2'
-        )
-    )
-
-    for i in range(N):
-        print(
-            '{0:11s} {1:1.5e} {2:1.5e} {3:1.5e} {4:1.5e} {5:1.5e}'.format(
-                str(i + 1), masses[i], radii[i], fluxes[i], u1[i], u2[i]
-            )
-        )
-
-    print('-' * 80)
-    print('Keplerian parameters')
-    print('-' * 80)
-
-    print(
-        '{0:11s} {1:11s} {2:11s} {3:11s} {4:11s} {5:11s} {6:11s}'.format(
-            'Body', 'a', 'e', 'inc', 'om', 'ln', 'ma'
-        )
-    )
-
-    for i in range(N - 1):
-        print(
-            '{0:11s} {1:1.5e} {2:1.5e} {3:1.5e} {4:1.5e} {5:1.5e} {6:1.5e}'.format(
-                str(i + 2), a[i], e[i], inc[i], om[i], ln[i], ma[i]
-            )
-        )
-
-    print()

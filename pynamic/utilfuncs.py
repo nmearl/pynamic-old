@@ -5,6 +5,7 @@ import pylab as pl
 import triangle
 import os
 import modeler
+import time
 
 
 def random_pos(N):
@@ -15,7 +16,9 @@ def random_pos(N):
     u2 = np.random.uniform(0.0, 1.0, N)
     a = sorted(np.random.uniform(0.0, 100.0, N - 1))
     e = np.random.uniform(0.0, 1.0, N - 1)
-    inc = np.random.uniform(0.0, np.pi, N - 1)
+    # Generate inclination within one sigma of 90 degrees
+    #inc = np.random.uniform(0.0, np.pi, N - 1)
+    inc = np.random.normal(np.pi/2, 1.0, N - 1)
     om = np.random.uniform(-2 * np.pi, 2 * np.pi, N - 1)
     ln = np.random.uniform(-np.pi, np.pi, N - 1)
     ma = np.random.uniform(0.0, 2 * np.pi, N - 1)
@@ -42,6 +45,48 @@ def reduced_chisqr(theta, x, y, yerr, N, t0, maxh, orbit_error):
     )
 
     return np.sum(((y - model) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6))
+
+
+def iterprint(N, bestpos, maxlnp, redchisqr, percomp, tleft):
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = split_parameters(bestpos, N)
+
+    print('=' * 80)
+    print('Likelihood: {0}, Red. Chi: {1} | {2:2.1f}% complete, ~{3} left'.format(
+        maxlnp, redchisqr, percomp * 100, time.strftime('%H:%M:%S', time.gmtime(tleft))))
+    print('-' * 80)
+    print('System parameters')
+    print('-' * 80)
+    print(
+        '{0:11s} {1:11s} {2:11s} {3:11s} {4:11s} {5:11s} '.format(
+            'Body', 'Mass', 'Radius', 'Flux', 'u1', 'u2'
+        )
+    )
+
+    for i in range(N):
+        print(
+            '{0:11s} {1:1.5e} {2:1.5e} {3:1.5e} {4:1.5e} {5:1.5e}'.format(
+                str(i + 1), masses[i], radii[i], fluxes[i], u1[i], u2[i]
+            )
+        )
+
+    print('-' * 80)
+    print('Keplerian parameters')
+    print('-' * 80)
+
+    print(
+        '{0:11s} {1:11s} {2:11s} {3:11s} {4:11s} {5:11s} {6:11s}'.format(
+            'Body', 'a', 'e', 'inc', 'om', 'ln', 'ma'
+        )
+    )
+
+    for i in range(N - 1):
+        print(
+            '{0:11s} {1:1.5e} {2:1.5e} {3:1.5e} {4:1.5e} {5:1.5e} {6:1.5e}'.format(
+                str(i + 2), a[i], e[i], inc[i], om[i], ln[i], ma[i]
+            )
+        )
+
+    print('')
 
 
 def plot_out(theta, fname, *args):
@@ -84,7 +129,6 @@ def report_out(N, t0, maxh, orbit_error, results, fname):
     results = np.array(results)
     report_as_input(N, t0, maxh, orbit_error, split_parameters(results[:, 0], N), fname)
 
-    print(results)
     results = split_parameters(results, N)
 
     GMsun = 2.959122083E-4 # AU**3/day**2

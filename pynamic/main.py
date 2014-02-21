@@ -89,7 +89,7 @@ def plot_model(params, x, y, yerr):
     )
 
     print("Reduced chi-square:", np.sum(((y - model) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6)))
-    inv_sigma2 = 1.0 / (yerr ** 2 + model ** 2)# * np.exp(2.0))
+    inv_sigma2 = 1.0 / (yerr ** 2)# + model ** 2)# * np.exp(2.0))
     print("Custom optimized value:", -0.5 * (np.sum((y - model) ** 2 * inv_sigma2 - np.log(inv_sigma2))))
 
     pylab.plot(x, y, 'k+')
