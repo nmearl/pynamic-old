@@ -8,21 +8,36 @@ import modeler
 import time
 
 
-def random_pos(N):
-    masses = np.random.uniform(0.0, 0.1, N)
-    radii = np.random.uniform(0.0, 1.0, N)
-    fluxes = np.random.uniform(0.0, 1.0, N)
-    u1 = np.random.uniform(0.0, 1.0, N)
-    u2 = np.random.uniform(0.0, 1.0, N)
-    a = sorted(np.random.uniform(0.0, 100.0, N - 1))
-    e = np.random.uniform(0.0, 1.0, N - 1)
-    # Generate inclination within one sigma of 90 degrees
-    #inc = np.random.uniform(0.0, np.pi, N - 1)
-    inc = np.random.normal(np.pi/2, 1.0, N - 1)
-    om = np.random.uniform(-2 * np.pi, 2 * np.pi, N - 1)
-    ln = np.random.uniform(-np.pi, np.pi, N - 1)
-    ma = np.random.uniform(0.0, 2 * np.pi, N - 1)
-    return masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
+def random_pos(N, nwalkers):
+    all_masses = 10**-np.logspace(0.0, 1.0, nwalkers)
+    all_radii = 10 * 10**-np.logspace(0.0, 1.0, nwalkers)
+    all_fluxes = np.random.uniform(0.0, 1.0, nwalkers)
+    all_u1 = np.random.uniform(0.0, 1.0, nwalkers)
+    all_u2 = np.random.uniform(0.0, 1.0, nwalkers)
+    all_a = 1000 * 10**-np.logspace(0.0, 1.0, nwalkers)
+    all_e = np.random.uniform(0.0, 1.0, nwalkers)
+    all_inc = np.random.normal(np.pi/2, 0.1, nwalkers)
+    all_om = np.random.uniform(-2 * np.pi, 2 * np.pi, nwalkers)
+    all_ln = np.random.uniform(-np.pi, np.pi, nwalkers)
+    all_ma = np.random.uniform(0.0, 2 * np.pi, nwalkers)
+
+    pos = []
+    for i in range(nwalkers):
+        masses = np.array([all_masses[i] for i in np.random.randint(nwalkers, size=N)])
+        radii = np.array([all_radii[i] for i in np.random.randint(nwalkers, size=N)])
+        fluxes = np.array([all_fluxes[i] for i in np.random.randint(nwalkers, size=N)])
+        u1 = np.array([all_u1[i] for i in np.random.randint(nwalkers, size=N)])
+        u2 = np.array([all_u2[i] for i in np.random.randint(nwalkers, size=N)])
+        a = np.sort(np.array([all_a[i] for i in np.random.randint(nwalkers, size=N-1)]))
+        e = np.array([all_e[i] for i in np.random.randint(nwalkers, size=N-1)])
+        inc = np.array([all_inc[i] for i in np.random.randint(nwalkers, size=N-1)])
+        om = np.array([all_om[i] for i in np.random.randint(nwalkers, size=N-1)])
+        ln = np.array([all_ln[i] for i in np.random.randint(nwalkers, size=N-1)])
+        ma = np.array([all_ma[i] for i in np.random.randint(nwalkers, size=N-1)])
+
+        pos.append(np.concatenate([masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma]))
+
+    return np.array(pos)
 
 
 def split_parameters(theta, N):

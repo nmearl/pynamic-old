@@ -66,7 +66,7 @@ def read_input(input_file):
 
 
 def get_random_pos(N, t0, maxh, orbit_error):
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.random_pos(N)
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(utilfuncs.random_pos(N, 1)[0], N)
     return N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
 
 

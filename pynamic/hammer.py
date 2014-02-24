@@ -6,6 +6,7 @@ import utilfuncs
 import modeler
 import os
 import time
+import minimizer
 
 
 # Define the probability function as likelihood * prior.
@@ -62,7 +63,9 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
 
     # Generate parameters if no input file; give non zero amount to parameters with 0.0 value if given input file
     if randpars:
-        pos0 = [np.concatenate(utilfuncs.random_pos(N)) for i in range(nwalkers)]
+        # pos0 = [np.concatenate(utilfuncs.random_pos(N)) for i in range(nwalkers)]
+        pos0 = utilfuncs.random_pos(N, nwalkers)
+        print(pos0[0])
     else:
         theta[theta == 0.0] = 1.0e-6
         pos0 = [theta + theta * 0.01 * np.random.randn(ndim) for i in range(nwalkers)]
@@ -82,7 +85,7 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
     for pos, lnp, state in sampler.sample(pos0, iterations=niterations, storechain=True):
         citer += 1.0
         tsum.append(time.time() - tlast)
-        tleft = np.mean(tsum) * (niterations - citer)
+        tleft = np.median(tsum) * (niterations - citer)
         tlast = time.time()
 
         maxlnprob = np.argmax(lnp)

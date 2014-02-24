@@ -103,3 +103,6 @@ def generate(in_params, x, y, yerr, fit_method, fname):
     # Save the final outputs
     print "Writing report..."
     utilfuncs.report_as_input(N, t0, maxh, orbit_error, _get_parameters(results.params), fname)
+
+    # Return best fit values
+    return np.concatenate(_get_parameters(results.params))
