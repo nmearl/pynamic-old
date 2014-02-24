@@ -10,11 +10,11 @@ import time
 
 def random_pos(N, nwalkers):
     all_masses = 10**-np.logspace(0.0, 1.0, nwalkers)
-    all_radii = 10 * 10**-np.logspace(0.0, 1.0, nwalkers)
+    all_radii = 10 * 10**-np.logspace(0.4, 0.7, nwalkers)
     all_fluxes = np.random.uniform(0.0, 1.0, nwalkers)
     all_u1 = np.random.uniform(0.0, 1.0, nwalkers)
     all_u2 = np.random.uniform(0.0, 1.0, nwalkers)
-    all_a = 1000 * 10**-np.logspace(0.0, 1.0, nwalkers)
+    all_a = 10 * 10**-np.logspace(0.0, 0.6, nwalkers)
     all_e = np.random.uniform(0.0, 1.0, nwalkers)
     all_inc = np.random.normal(np.pi/2, 0.1, nwalkers)
     all_om = np.random.uniform(-2 * np.pi, 2 * np.pi, nwalkers)
