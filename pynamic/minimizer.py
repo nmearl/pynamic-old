@@ -32,10 +32,10 @@ def _get_parameters(params):
     return masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
 
 
-def fitfunc(params, x):
+def fitfunc(params, x, ncores):
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = _get_parameters(params)
 
-    out_fluxes = modeler.generate(
+    out_fluxes = modeler.multigenerate(ncores,
         params['N'].value, params['t0'].value,
         params['maxh'].value, params['orbit_error'].value,
         x,
@@ -46,19 +46,19 @@ def fitfunc(params, x):
     return out_fluxes
 
 
-def residual(params, x, y, yerr, *args):
-    model = fitfunc(params, x)
+def residual(params, x, y, yerr, ncores, *args):
+    model = fitfunc(params, x, ncores)
     weighted = (model - y) / yerr
     # per_iteration(params, y, yerr, model, chi2)
     return weighted
 
 
-def generate(in_params, x, y, yerr, fit_method, fname):
+def generate(in_params, x, y, yerr, fit_method, ncores, fname):
     N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = in_params
 
     params = Parameters()
     params.add('N', value=N, vary=False)
-    params.add('t0', value=t0, vary=False)
+    params.add('t0', value=t0, vary=True)
     params.add('maxh', value=maxh, vary=False)
     params.add('orbit_error', value=orbit_error, vary=False)
 
@@ -89,7 +89,7 @@ def generate(in_params, x, y, yerr, fit_method, fname):
     # params['ln_2'].vary = False
 
     print('Generating maximum likelihood values...')
-    results = minimize(residual, params, args=(x, y, yerr), iter_cb=per_iteration, method=fit_method)
+    results = minimize(residual, params, args=(x, y, yerr, ncores), iter_cb=per_iteration, method=fit_method)
 
     # for i in range(1):
     #     print "Run {0}".format(i + 1)

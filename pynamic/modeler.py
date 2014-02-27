@@ -72,11 +72,11 @@ def multigenerate(ncores, N, t0, maxh, orbit_error, in_times, mass, radii, flux,
     p.close()
     p.join()
 
-    fluxes = np.array([])
-    for sub_fluxes in result:
-        fluxes = np.append(fluxes, sub_fluxes)
+    # fluxes = np.array([])
+    # for sub_fluxes in result:
+    #     fluxes = np.append(fluxes, sub_fluxes)
 
-    return fluxes
+    return np.concatenate(result)
 
 
 def generate(N, t0, maxh, orbit_error, in_times, mass, radii, flux, u1, u2, a, e, inc, om, ln, ma):

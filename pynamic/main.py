@@ -154,7 +154,7 @@ def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspa
     else:
         minimizer.generate(
             params, x[:n], y[:n], yerr[:n], fit_method,
-            fname
+            ncores, fname
         )
 
     print "Total time:", time.time() - time_start

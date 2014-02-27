@@ -68,7 +68,7 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
         print(pos0[0])
     else:
         theta[theta == 0.0] = 1.0e-6
-        pos0 = [theta + theta * 0.01 * np.random.randn(ndim) for i in range(nwalkers)]
+        pos0 = [theta + theta * 0.1 * np.random.randn(ndim) for i in range(nwalkers)]
 
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(x, y, yerr, N, t0, maxh, orbit_error), threads=ncores)
 
