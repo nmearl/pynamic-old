@@ -13,6 +13,10 @@ import minimizer
 def lnprior(theta, N):
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(theta, N)
 
+    ma[ma < 0.0] += 2.0 * np.pi
+    om[om < 0.0] += 2.0 * np.pi
+    ln[ln < 0.0] += 2.0 * np.pi
+
     if len(masses[(masses <= 0.0) | (masses > 0.1)]) == 0 \
         and len(radii[(radii <= 0.0) | (radii > 1.0)]) == 0 \
         and len(fluxes[(fluxes > 1.0) | (fluxes < 0.0)]) == 0 \
@@ -21,8 +25,8 @@ def lnprior(theta, N):
         and len(a[(a < 0.0) | (a > 100.0)]) == 0 \
         and len(e[(e > 1.0) | (e < 0.0)]) == 0 \
         and len(inc[(inc > np.pi) | (inc < 0.0)]) == 0 \
-        and len(om[(om > (2.0 * np.pi)) | (om < (-2.0 * np.pi))]) == 0 \
-        and len(ln[(ln > np.pi) | (ln < -np.pi)]) == 0 \
+        and len(om[(om > (2.0 * np.pi)) | (om < 0.0)]) == 0 \
+        and len(ln[(ln > (2.0 * np.pi)) | (ln < 0.0)]) == 0 \
         and len(ma[(ma > (2.0 * np.pi)) | (ma < 0.0)]) == 0 \
         and np.all(a[1:] >= a[:-1]):
         return 0.0
