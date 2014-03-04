@@ -7,6 +7,8 @@ from astropy import units as unit
 from numba import autojit, vectorize, guvectorize, float64
 import time
 import math
+from numpy.polynomial.legendre import legval
+from numpy.linalg import norm
 
 # Define some global variables
 sigma = sigma_sb.value  # sb constant
@@ -102,21 +104,31 @@ class System():
 
     def gforce_new(self):
         all_bodies = self.all_bodies
-        for i in range(len(all_bodies)):
+        for i in range(1, len(all_bodies)):
             body = all_bodies[i]
             body.last_acceleration = body.acceleration
             body.acceleration = np.zeros(3)
+
+            all_mass = np.array(body.mass for body in all_bodies)
+            all_position = np.array(body.position for body in all_bodies)
 
             # Get mass interior to the body in question
             int_mass = np.sum(all_bodies[j].mass for j in range(len(all_bodies)) if j < i)
 
             # Calculate the jacobian postion of the body
-            body.jposition = body.position - (1.0 / int_mass) * \
-                             np.sum(all_bodies[k].mass * all_bodies[k].position for k in range(len(all_bodies)))
+            jpos = body.position - all_bodies[i-1].position
+            jpos_norm = np.linalg.norm(jpos)
+            # body.position - (1.0 / int_mass) * np.sum(all_bodies[k].mass * all_bodies[k].position for k in range(len(all_bodies)))
 
             # Calculate the jacobian acceleration of body
-            mu = body.mass / self.total_mass
-            body.acceleration = - G.value * all_bodies[0]
+            epsilon_k = np.sum(all_mass[k] * np.sum(all_mass[:k-1+1]) / (np.sum(all_mass[:k+1]) * np.sum(all_mass[:i-1+1])) *
+                               (norm(all_position[k] - all_position[k-1]) / jpos_norm)**2 for k in range(1, i-1))
+            c_leg_k = np.sum(0.5 * (3 * (np.dot((all_position[k] - all_position[k-1]), jpos) / (norm(all_position[k] - all_position[k-1]) * jpos_norm))**2 - 1) for k in range(i-1))
+            epsilon_l = np.sum(all_mass[l] * np.sum(all_mass[:l-1+1]) / (np.sum(all_mass[:l+1]) * np.sum(all_mass[:i-1+1])) *
+                               (norm(all_position[l] - all_position[l-1]) / jpos_norm)**2 for l in range(1+i, len(all_bodies)))
+            c_leg_l = np.sum(0.5 * (3 * (np.dot((all_position[l] - all_position[l-1]), jpos) / (norm(all_position[l] - all_position[l-1]) * jpos_norm))**2 - 1) for l in range(1+i, len(all_bodies)))
+
+            body.acceleration = G.value * body.mass * np.gradient() * (1/jpos_norm) * (1 + epsilon_k * c_leg_k + epsilon_l * c_leg_l)
 
             if i + 1 < len(self.all_bodies):
                     body.jposition -= self.all_bodies[i+1].position
@@ -134,7 +146,7 @@ class System():
                 if i + 1 < len(self.all_bodies):
                     r -= self.all_bodies[i+1].position
 
-                body.acceleration = - G.value * self.all_bodies[0].mass *
+                body.acceleration = - G.value * self.all_bodies[0].mass
 
 # @autojit
 @guvectorize(['void(float64[:,:], float64[:])'], '(m,n)->(m)')
@@ -265,7 +277,8 @@ class Body():
         self.total_flux()
 
         # Calculate initial kinematics
-        self.get_kinematics()
+        if self.semimajor_axis > 0.0:
+            self.get_kinematics()
 
     def save_position(self, skypos=False):
         self.position_history.append(self.position)
@@ -473,7 +486,7 @@ if __name__ == '__main__':
     system.add_body(0.000317770494, 0.07497, 170.0, 0.7048, 0.15944, 90.032, 318.0, 0.003, 180.0)
 
     t0 = time.time()
-    system.run(86.40, 10000)
+    system.run(864.0, 10000)
     print(time.time() - t0)
     # system_run = numba.autojit(system.run)
     # system_run(864.0, 1000)
