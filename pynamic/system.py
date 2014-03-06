@@ -31,28 +31,42 @@ class System():
         self.all_bodies.append(new_body)
 
         # Get new total luminosity of the system
-        self.total_luminosity = np.sum(body.luminosity for body in self.all_bodies)
+        self.total_luminosity = np.sum(b.luminosity for b in self.all_bodies)
 
         # Get total flux of the system
-        self.total_flux = np.sum(body.flux for body in self.all_bodies)
+        self.total_flux = np.sum(b.flux for b in self.all_bodies)
 
         # Get new center of mass
-        # self.com = 1.0/np.sum(body.mass for body in self.all_bodies) * \
-        #            np.sum(body.mass * body.position for body in self.all_bodies)
+        self.com = 1.0/np.sum(body.mass for body in self.all_bodies) * \
+                   np.sum(body.mass * body.position for body in self.all_bodies)
+
+        # Calculate total mass
+        self.tot_mass = np.sum(b.mass for b in self.all_bodies)
+
+        # self.all_bodies[0].position = +self.com
+
+        # # Calculate Jacobian coordinates
+        # for i in range(1, len(self.all_bodies)):
+        #     body = self.all_bodies[i]
+        #     body.jposition = body.position - self.com - (1.0/np.sum(self.all_bodies[j].mass for j in range(i))) * \
+        #         np.sum(self.all_bodies[k].mass * self.all_bodies[k].position for k in range(i))\
+
+    def prepare(self):
+        pass
+
 
     def run(self, dt, nsteps):
         # Run loop
         for i in range(nsteps):
             # Calculate force and acceleration on body
-            for body in self.all_bodies:
-                self.gforce(body)
-
+            self.gforce()
             for body in self.all_bodies:
                 # Save the position for plotting purposes
                 body.save_position()
 
                 # Advance the position
                 body.position = body.position + body.velocity * dt + 0.5 * body.acceleration * dt ** 2
+                # body.jposition = body.jposition + body.velocity * dt + 0.5 * body.acceleration * dt ** 2
 
             # Sort bodies by closest to furthest
             xvals = np.array([body.position[0] for body in self.all_bodies])
@@ -67,16 +81,16 @@ class System():
             self.luminosity_history.append(current_luminosity)
 
             # Calculate new forces
+            self.gforce()
             for body in self.all_bodies:
-                self.gforce(body)
-
                 # Advance the velocity
                 body.velocity += 0.5 * (body.acceleration + body.last_acceleration) * dt
 
         for body in self.all_bodies:
             x, y, z = zip(*body.position_history)
-            pylab.plot(z, y, '--')
-            pylab.plot(x, y)
+            pylab.plot(x, y, label=body.mass)
+            pylab.plot(x[0], y[0], 'o')
+            pylab.legend(loc=0)
         pylab.show()
 
         for body in self.all_bodies:
@@ -88,19 +102,44 @@ class System():
         pylab.plot(self.luminosity_history)
         pylab.show()
 
-    def gforce(self, body):
-        body.force = np.zeros(3)  # * unit.kg * unit.meter / unit.second**2
-        body.last_acceleration = body.acceleration
+    def gforce_old(self):
+        for body in self.all_bodies:
+            body.force = np.zeros(3)  # * unit.kg * unit.meter / unit.second**2
+            body.last_acceleration = body.acceleration
 
-        for other_body in self.all_bodies:
-            if other_body == body:
-                continue
+            for other_body in self.all_bodies:
+                if other_body == body:
+                    continue
 
-            rvec = body.position - other_body.position
-            distance = np.linalg.norm(body.position - other_body.position)  # * unit.meter
-            body.force += - G.value * body.mass * other_body.mass * rvec / distance ** 3
+                rvec = body.position - other_body.position
+                distance = np.linalg.norm(body.position - other_body.position)  # * unit.meter
+                body.force += - G.value * body.mass * other_body.mass * rvec / distance ** 3
 
-        body.acceleration = body.force / body.mass  # - G * other_body.mass * rvec / np.abs(rvec)
+            body.acceleration = body.force / body.mass  # - G * other_body.mass * rvec / np.abs(rvec)
+
+    def gforce(self):
+        all_bodies = self.all_bodies
+        tot_mass = self.tot_mass
+        for i in range(1, len(all_bodies)):
+            body = all_bodies[i]
+            body.last_acceleration = body.acceleration
+
+            # r = body.position - (1/np.sum(all_bodies[j].mass for j in range(i))) * \
+            #     np.sum(all_bodies[k].mass * all_bodies[k].position for k in range(i))
+
+            r = [b.position for b in all_bodies]
+            mu = [b.mass/tot_mass for b in all_bodies]
+            rij = [mu[m-1] * r[m-1] + r[m] if m > 0 else np.zeros(3) for m in range(len(all_bodies))]
+
+            # rjk = mu[i-2] * r[i-2] + r[i-1]
+            # rij = mu[i-1] * r[i-1] + r[i]
+            body.acceleration = -G.value * tot_mass * rij[i] / ((1.0 - mu[i]) * norm(rij[i])**3)
+
+            if i == 1 and len(all_bodies) > 2:
+                body.acceleration -= G.value * tot_mass * mu[i+1] * (r[i] - rij[i+1]) / norm(r[i] - rij[i+1])**3
+                body.acceleration -= G.value * tot_mass * mu[i+1] * rij[i+1] / norm(rij[i+1])**3
+            else:
+                body.acceleration -= G.value * tot_mass * mu[i-1] * (rij[i] - rij[i-1]) / norm(rij[i] - rij[i-1])**3
 
     def gforce_new(self):
         all_bodies = self.all_bodies
@@ -116,7 +155,9 @@ class System():
             int_mass = np.sum(all_bodies[j].mass for j in range(len(all_bodies)) if j < i)
 
             # Calculate the jacobian postion of the body
-            jpos = body.position - all_bodies[i-1].position
+            com = 1.0/np.sum(all_mass[j] for j in range(len(all_bodies)) if j < i) * \
+                   np.sum(all_mass[j] * all_position[j] for j in range(len(all_bodies)) if j < i)
+            jpos = body.position * com
             jpos_norm = np.linalg.norm(jpos)
             # body.position - (1.0 / int_mass) * np.sum(all_bodies[k].mass * all_bodies[k].position for k in range(len(all_bodies)))
 
@@ -129,24 +170,6 @@ class System():
             c_leg_l = np.sum(0.5 * (3 * (np.dot((all_position[l] - all_position[l-1]), jpos) / (norm(all_position[l] - all_position[l-1]) * jpos_norm))**2 - 1) for l in range(1+i, len(all_bodies)))
 
             body.acceleration = G.value * body.mass * np.gradient() * (1/jpos_norm) * (1 + epsilon_k * c_leg_k + epsilon_l * c_leg_l)
-
-            if i + 1 < len(self.all_bodies):
-                    body.jposition -= self.all_bodies[i+1].position
-
-
-
-            for i in range(len(self.all_bodies)):
-                other_body = self.all_bodies[i]
-                if other_body == body:
-                    continue
-
-                r = self.total_mass * np.sum(body.mass * body.position for body in self.all_bodies)
-
-
-                if i + 1 < len(self.all_bodies):
-                    r -= self.all_bodies[i+1].position
-
-                body.acceleration = - G.value * self.all_bodies[0].mass
 
 # @autojit
 @guvectorize(['void(float64[:,:], float64[:])'], '(m,n)->(m)')
@@ -262,11 +285,13 @@ class Body():
         self.period = 0.0
 
         # Kinematics
+        self.jposition = np.zeros(3)
         self.position = np.zeros(3)  # (pos * unit.au).to(unit.meter).value
         self.velocity = np.zeros(3)  # (vel * unit.km / unit.second).to(unit.meter / unit.second).value
         self.acceleration = np.zeros(3)  # * unit.meter / unit.second**2
         self.last_acceleration = np.zeros(3)  # * unit.meter / unit.second**2
         self.position_history = []
+        self.jposition_history = []
 
         # Intrinsic characteristics
         self.kinetic_energy = 0.0
@@ -280,16 +305,14 @@ class Body():
         if self.semimajor_axis > 0.0:
             self.get_kinematics()
 
-    def save_position(self, skypos=False):
+    def save_position(self):
         self.position_history.append(self.position)
+
+    def save_jposition(self):
+        self.jposition_history.append(self.jposition)
 
     def get_kinetic_energy(self):
         self.kinetic_energy = 0.5 * self.mass * np.sum(v ** 2 for v in self.velocity)
-
-    def sky_position(self):
-        return self.position  # np.array([self.position[0] * np.sin(self.inclination),
-        #self.position[1] * 1.0,
-        #self.position[0] * -np.cos(self.inclination)])
 
     def total_flux(self, Nr=100):
         rS = 0.0
@@ -331,19 +354,13 @@ class Body():
 
         return ea
 
-    def _q(self):
-        pass
-
-    def _dq(self):
-        pass
-
     def get_kinematics(self):
         mu = G.value * self.mass
         a, e, i = self.semimajor_axis, self.eccentricity, self.inclination
         W, w = self.right_ascension, self.arg_periastron
-        t, T = 0.0, 30.0
+        t, T = 0.0, 212.12316
 
-        mean_anomaly = self.true_anomaly #.sqrt(mu / a**3) * (t - T)
+        mean_anomaly = self.true_anomaly # np.sqrt(mu / a**3) * (t - T)
         eccentric_anomaly = self._get_eccentric_anomaly(mean_anomaly, e)
 
         # Unrotated positions and velocities
@@ -399,8 +416,6 @@ class Body():
             velocity[0] * np.sin(W) + velocity[1] * np.cos(W),
             velocity[2]
         ])
-
-        print(velocity)
         self.position = position
         self.velocity = velocity
 
@@ -474,16 +489,14 @@ class Body():
 if __name__ == '__main__':
     system = System()
     # mass, radius, temperature, a, ecc, inc, arg_peri, right_asc, true anomaly
-    # system.add_body(0.6897, 0.6489, 4450.0, 0.22431, 0.15944, 90.30401, 263.464, 0.0, 0.0)
-    # system.add_body(0.6897, 0.6489, 4450.0, 0.22431, 0.0, 0.0, 0.0, 0.0, 0.0)
-    # system.add_body(0.20255, 0.22623, 3000.0, 0.22431, 0.15944, 90.30401, 263.464, 90.0, 180.0)
-    # system.add_body(5.9, 3.2, 15200.0, 0.040971, 0.0, 0.0, 0.0, 0.0, 0.0)
+    # system.add_body(5.9, 3.2, 15200.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
                     # np.array([-0.80971, 0.0, 0.0]), np.array([0.0, -36.2, 0.0]))
     # system.add_body(5.6, 2.9, 13700.0, 0.043166, 0.1573, 88.89, 214.6, 0.0, 180.0)
     #                 np.array([0.80971, 0.0, 0.0]), np.array([0.0, 36.2, 0.0]))
+
     system.add_body(0.6897, 0.6489, 4450.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-    system.add_body(0.20255, 0.22623, 3000.0, 0.22431, 0.15944, 90.30401, 263.464, 90.0, 180.0)
-    system.add_body(0.000317770494, 0.07497, 170.0, 0.7048, 0.15944, 90.032, 318.0, 0.003, 180.0)
+    system.add_body(0.20255, 0.22623, 3000.0, 0.22431, 0.15944, 90.30401, 263.464, 0.0, 188.884)
+    system.add_body(0.000317770494, 0.07497, 170.0, 0.7048, 0.0069, 90.032, 318.0, 0.003, 137.1126)
 
     t0 = time.time()
     system.run(864.0, 10000)
