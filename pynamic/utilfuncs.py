@@ -4,7 +4,7 @@ import numpy as np
 import pylab as pl
 import triangle
 import os
-import modeler
+import photometry
 import time
 
 
@@ -52,7 +52,7 @@ def split_parameters(theta, N):
 def reduced_chisqr(theta, x, y, yerr, N, t0, maxh, orbit_error):
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = split_parameters(theta, N)
 
-    model = modeler.generate(
+    model = photometry.generate(
         N, t0, maxh, orbit_error,
         x,
         masses, radii, fluxes, u1, u2,
@@ -113,15 +113,15 @@ def plot_out(theta, fname, *args):
     if not os.path.exists("./output/{0}".format(fname)):
         os.mkdir("./output/{0}".format(fname))
 
-    if not os.path.exists("./output/{0}".format(fname)):
+    if not os.path.exists("./output/{0}/plots".format(fname)):
         os.mkdir("./output/{0}/plots".format(fname))
 
     if args:
         sampler, samples, ndim = args
 
         # Plot corner plot
-        fig = triangle.corner(samples)
-        fig.savefig("./output/{0}/plots/triangle.png".format(fname))
+        # fig = triangle.corner(samples)
+        # fig.savefig("./output/{0}/plots/triangle.png".format(fname))
 
         # Plot paths of walkers
         for i in range(len(theta)):

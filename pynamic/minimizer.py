@@ -2,7 +2,7 @@ __author__ = 'nmearl'
 
 import numpy as np
 from lmfit import minimize, Parameters, report_fit
-import modeler
+import photometry
 import utilfuncs
 
 twopi = 2.0 * np.pi
@@ -15,7 +15,7 @@ def per_iteration(params, i, resids, x, y, yerr, *args, **kws):
     utilfuncs.iterprint(N, np.concatenate(_get_parameters(params)), 0.0, redchisqr, 0.0, 0.0)
 
 
-def _get_parameters(params):
+def _get_parameters(params, full=False):
     masses = np.array([params['mass_{0}'.format(i)].value for i in range(params['N'].value)])
     radii = np.array([params['radius_{0}'.format(i)].value for i in range(params['N'].value)])
     fluxes = np.array([params['flux_{0}'.format(i)].value for i in range(params['N'].value)])
@@ -29,13 +29,17 @@ def _get_parameters(params):
     ln = np.array([params['ln_{0}'.format(i)].value for i in range(1, params['N'].value)])
     ma = np.array([params['ma_{0}'.format(i)].value for i in range(1, params['N'].value)])
 
-    return masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
+    if not full:
+        return masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
+    else:
+        return params['N'].value, params['t0'].value, params['maxh'].value, params['orbit_error'].value, \
+               masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
 
 
 def fitfunc(params, x, ncores):
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = _get_parameters(params)
 
-    out_fluxes = modeler.multigenerate(ncores,
+    out_fluxes = photometry.multigenerate(ncores,
         params['N'].value, params['t0'].value,
         params['maxh'].value, params['orbit_error'].value,
         x,
@@ -75,34 +79,20 @@ def generate(in_params, x, y, yerr, fit_method, ncores, fname):
         #     params['u2_{0}'.format(i)].vary = False
 
         if i > 0:
-            params.add('a_{0}'.format(i), value=a[i - 1], min=0.0, max=1.0)
+            params.add('a_{0}'.format(i), value=a[i - 1], min=0.0, max=10.0)
             params.add('e_{0}'.format(i), value=e[i - 1], min=0.0, max=1.0)
             params.add('inc_{0}'.format(i), value=inc[i - 1], min=0.0, max=np.pi)
             params.add('om_{0}'.format(i), value=om[i - 1], min=-twopi, max=twopi)
-            params.add('ln_{0}'.format(i), value=ln[i - 1], min=-np.pi, max=np.pi)
+            params.add('ln_{0}'.format(i), value=ln[i - 1], min=-twopi, max=twopi)
             params.add('ma_{0}'.format(i), value=ma[i - 1], min=0.0, max=twopi)
-
-    # params['flux_2'].min= 0.8
-    # params['flux_2'].max = 1.0
-    # params['flux_2'].vary = False
-    # params['flux_2'].expr = '1.0 - flux_0 - flux_1'
-    # params['ln_2'].vary = False
 
     print('Generating maximum likelihood values...')
     results = minimize(residual, params, args=(x, y, yerr, ncores), iter_cb=per_iteration, method=fit_method)
 
-    # for i in range(1):
-    #     print "Run {0}".format(i + 1)
-    #result = minimize(residual, result.params, args=(x, y, yerr))#, method='anneal')
-
-    # Give some info on the fit
-    # print "Reduced chi-squared:", result.redchi
-    # print "Chi-squared:", result.chisqr
-    report_fit(params)
-
     # Save the final outputs
     print "Writing report..."
+    # report_fit(params)
     utilfuncs.report_as_input(N, t0, maxh, orbit_error, _get_parameters(results.params), fname)
 
     # Return best fit values
-    return np.concatenate(_get_parameters(results.params))
+    return _get_parameters(results.params, full=True)

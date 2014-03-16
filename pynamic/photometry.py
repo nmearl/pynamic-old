@@ -9,10 +9,10 @@ from multiprocessing import Pool
 
 if sys.platform == 'darwin':
     # print("It seems you're on mac, loading mac libraries...")
-    lib = ctypes.cdll.LoadLibrary('./lib/photodynam-mac.so')
+    lib = ctypes.cdll.LoadLibrary('lib/photodynam-mac.so')
 else:
     # print("It seems you're on linux, loading linux libraries...")
-    lib = ctypes.cdll.LoadLibrary('./lib/photodynam.so')
+    lib = ctypes.cdll.LoadLibrary('lib/photodynam.so')
 
 start = lib.start
 

@@ -5,7 +5,7 @@ import time
 # import matplotlib
 # matplotlib.use('agg')
 import pylab
-import modeler
+import photometry
 import minimizer
 import hammer
 import utilfuncs
@@ -23,6 +23,9 @@ def read_data(data_file):
 
     with open('{0}'.format(data_file), 'r') as f:
         for line in f.readlines():
+            if line[0] == '#':
+                continue
+
             time, flux, err = line.strip().split()[:3]
             data_times.append(float(time))
             data_fluxes.append(float(flux))
@@ -80,7 +83,7 @@ def plot_model(params, x, y, yerr):
     """
     N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
 
-    model = modeler.generate(
+    model = photometry.generate(
         N, t0,
         maxh, orbit_error,
         x,
@@ -89,7 +92,7 @@ def plot_model(params, x, y, yerr):
     )
 
     print("Reduced chi-square:", np.sum(((y - model) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6)))
-    inv_sigma2 = 1.0 / (yerr ** 2)# + model ** 2)# * np.exp(2.0))
+    inv_sigma2 = 1.0 / (yerr ** 2 + model ** 2 * np.exp(2.0 * np.log(1.0e-10)))
     print("Custom optimized value:", -0.5 * (np.sum((y - model) ** 2 * inv_sigma2 - np.log(inv_sigma2))))
 
     pylab.plot(x, y, 'k+')
@@ -128,12 +131,14 @@ def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspa
 
     if '.' in data_file:
         x, y, yerr = read_data(data_file)
-
-    n = int(len(x))
+    else:
+        return
 
     time_start = time.time()
 
     fname = data_file.split('/')[-1].split('.')[0]
+
+    n = int(len(x))
 
     try:
         fname = re.findall(r'\d+', fname)[0]
@@ -151,6 +156,18 @@ def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspa
     elif fit_method == 'plot':
         plot_model(params, x[:n], y[:n], yerr[:n])
 
+    elif fit_method == 'cluster':
+        params = minimizer.generate(
+            params, x[:n], y[:n], yerr[:n], 'leastsq',
+            ncores, fname
+        )
+
+        hammer.generate(
+            params, x[:n], y[:n], yerr[:n],
+            nwalkers, niterations, ncores, randpars,
+            fname
+        )
+
     else:
         minimizer.generate(
             params, x[:n], y[:n], yerr[:n], fit_method,
@@ -165,7 +182,7 @@ if __name__ == '__main__':
     parser.add_argument('data', help='data file containing detrended light curve')
     parser.add_argument('-f', '--fit', help='fit method used to minimize',
                         choices=['mcmc', 'leastsq', 'nelder', 'lbfgsb', 'anneal', 'powell',
-                                 'cg', 'newton', 'cobyla', 'slsqp', 'plot'], default='leastsq')
+                                 'cg', 'newton', 'cobyla', 'slsqp', 'plot', 'cluster'], default='leastsq')
     parser.add_argument('-i', '--input', help='input file containing initial parameters (overrides --system)')
     parser.add_argument('-w', '--walkers', type=int, default=250,
                         help='number of walkers if using mcmc fit method ')

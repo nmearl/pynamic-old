@@ -9,6 +9,7 @@ import time
 import math
 from numpy.polynomial.legendre import legval
 from numpy.linalg import norm
+import main
 
 # Define some global variables
 sigma = sigma_sb.value  # sb constant
@@ -25,9 +26,15 @@ class System():
         self.total_flux = 0.0
         self.luminosity_history = []
 
-    def add_body(self, mass, radius, temperature, a, ecc, inc, arg_peri, right_asc, true_anomaly):
+    def add_body(self, mass, radius, temperature, cartesian=None, keplerian=None):#position, velocity):#, a, ecc, inc, arg_peri, long_node, true_anomaly):
         # Add star to list of all bodies
-        new_body = Body(mass, radius, temperature, a, ecc, inc, arg_peri, right_asc, true_anomaly)
+        new_body = Body(mass, radius, temperature)#, a, ecc, inc, arg_peri, long_node, true_anomaly)
+
+        if cartesian != None:
+            new_body.set_cartesian(cartesian)
+        elif keplerian != None:
+            new_body.set_keplerian(keplerian)
+
         self.all_bodies.append(new_body)
 
         # Get new total luminosity of the system
@@ -43,19 +50,17 @@ class System():
         # Calculate total mass
         self.tot_mass = np.sum(b.mass for b in self.all_bodies)
 
-        # self.all_bodies[0].position = +self.com
-
-        # # Calculate Jacobian coordinates
-        # for i in range(1, len(self.all_bodies)):
-        #     body = self.all_bodies[i]
-        #     body.jposition = body.position - self.com - (1.0/np.sum(self.all_bodies[j].mass for j in range(i))) * \
-        #         np.sum(self.all_bodies[k].mass * self.all_bodies[k].position for k in range(i))\
-
     def prepare(self):
         pass
 
 
-    def run(self, dt, nsteps):
+    def run(self, nsteps, dt=1626.0):
+        # for body in self.all_bodies:
+        #     body.position -= self.com
+        #     print body.position
+        #
+        # self.com = np.zeros(3)
+
         # Run loop
         for i in range(nsteps):
             # Calculate force and acceleration on body
@@ -86,23 +91,23 @@ class System():
                 # Advance the velocity
                 body.velocity += 0.5 * (body.acceleration + body.last_acceleration) * dt
 
-        for body in self.all_bodies:
-            x, y, z = zip(*body.position_history)
-            pylab.plot(x, y, label=body.mass)
-            pylab.plot(x[0], y[0], 'o')
-            pylab.legend(loc=0)
-        pylab.show()
+        # for body in self.all_bodies:
+        #     x, y, z = zip(*body.position_history)
+        #     pylab.plot(x, y, label=body.mass)
+        #     pylab.plot(x[0], y[0], 'o')
+        #     pylab.legend(loc=0)
+        # pylab.show()
+        #
+        # for body in self.all_bodies:
+        #     x, y, z = zip(*body.position_history)
+        #     # pylab.plot(z, y, '--')
+        #     pylab.plot(z, y)
+        # pylab.show()
+        #
+        # pylab.plot(self.luminosity_history)
+        # pylab.show()
 
-        for body in self.all_bodies:
-            x, y, z = zip(*body.position_history)
-            # pylab.plot(z, y, '--')
-            pylab.plot(z, y)
-        pylab.show()
-
-        pylab.plot(self.luminosity_history)
-        pylab.show()
-
-    def gforce_old(self):
+    def gforce(self):
         for body in self.all_bodies:
             body.force = np.zeros(3)  # * unit.kg * unit.meter / unit.second**2
             body.last_acceleration = body.acceleration
@@ -117,7 +122,7 @@ class System():
 
             body.acceleration = body.force / body.mass  # - G * other_body.mass * rvec / np.abs(rvec)
 
-    def gforce(self):
+    def gforce_old(self):
         all_bodies = self.all_bodies
         tot_mass = self.tot_mass
         for i in range(1, len(all_bodies)):
@@ -133,43 +138,13 @@ class System():
 
             # rjk = mu[i-2] * r[i-2] + r[i-1]
             # rij = mu[i-1] * r[i-1] + r[i]
-            body.acceleration = -G.value * tot_mass * rij[i] / ((1.0 - mu[i]) * norm(rij[i])**3)
+            body.acceleration = -G.value * all_bodies[0].mass / (1.0 - mu[i]) * rij[i] / norm(rij[i])**3
 
             if i == 1 and len(all_bodies) > 2:
                 body.acceleration -= G.value * tot_mass * mu[i+1] * (r[i] - rij[i+1]) / norm(r[i] - rij[i+1])**3
                 body.acceleration -= G.value * tot_mass * mu[i+1] * rij[i+1] / norm(rij[i+1])**3
             else:
-                body.acceleration -= G.value * tot_mass * mu[i-1] * (rij[i] - rij[i-1]) / norm(rij[i] - rij[i-1])**3
-
-    def gforce_new(self):
-        all_bodies = self.all_bodies
-        for i in range(1, len(all_bodies)):
-            body = all_bodies[i]
-            body.last_acceleration = body.acceleration
-            body.acceleration = np.zeros(3)
-
-            all_mass = np.array(body.mass for body in all_bodies)
-            all_position = np.array(body.position for body in all_bodies)
-
-            # Get mass interior to the body in question
-            int_mass = np.sum(all_bodies[j].mass for j in range(len(all_bodies)) if j < i)
-
-            # Calculate the jacobian postion of the body
-            com = 1.0/np.sum(all_mass[j] for j in range(len(all_bodies)) if j < i) * \
-                   np.sum(all_mass[j] * all_position[j] for j in range(len(all_bodies)) if j < i)
-            jpos = body.position * com
-            jpos_norm = np.linalg.norm(jpos)
-            # body.position - (1.0 / int_mass) * np.sum(all_bodies[k].mass * all_bodies[k].position for k in range(len(all_bodies)))
-
-            # Calculate the jacobian acceleration of body
-            epsilon_k = np.sum(all_mass[k] * np.sum(all_mass[:k-1+1]) / (np.sum(all_mass[:k+1]) * np.sum(all_mass[:i-1+1])) *
-                               (norm(all_position[k] - all_position[k-1]) / jpos_norm)**2 for k in range(1, i-1))
-            c_leg_k = np.sum(0.5 * (3 * (np.dot((all_position[k] - all_position[k-1]), jpos) / (norm(all_position[k] - all_position[k-1]) * jpos_norm))**2 - 1) for k in range(i-1))
-            epsilon_l = np.sum(all_mass[l] * np.sum(all_mass[:l-1+1]) / (np.sum(all_mass[:l+1]) * np.sum(all_mass[:i-1+1])) *
-                               (norm(all_position[l] - all_position[l-1]) / jpos_norm)**2 for l in range(1+i, len(all_bodies)))
-            c_leg_l = np.sum(0.5 * (3 * (np.dot((all_position[l] - all_position[l-1]), jpos) / (norm(all_position[l] - all_position[l-1]) * jpos_norm))**2 - 1) for l in range(1+i, len(all_bodies)))
-
-            body.acceleration = G.value * body.mass * np.gradient() * (1/jpos_norm) * (1 + epsilon_k * c_leg_k + epsilon_l * c_leg_l)
+                body.acceleration -= G.value * tot_mass * mu[i-1] * (rij[i] - r[i-1]) / norm(rij[i] - r[i-1])**3
 
 # @autojit
 @guvectorize(['void(float64[:,:], float64[:])'], '(m,n)->(m)')
@@ -266,40 +241,46 @@ def eclipse(sorted_bodies, dS):
 
 
 class Body():
-    def __init__(self, mass, radius, temperature, a, ecc, inc, arg_peri, right_asc, true_anomaly):
+
+    def __init__(self, mass, radius, temperature):
         # Stellar parameters
         self.mass = (mass * unit.solMass).to(unit.kg).value
         self.radius = (radius * unit.solRad).to(unit.meter).value
         self.temperature = temperature
-        
-        # Orbital elements
-        self.semimajor_axis = (a * unit.AU).to(unit.meter).value
-        self.eccentricity = ecc
-        self.inclination = np.deg2rad(inc)
-        self.arg_periastron = np.deg2rad(arg_peri)
-        self.right_ascension = np.deg2rad(right_asc)
-        self.true_anomaly = np.deg2rad(true_anomaly)
-        # self.epoch = epoch
-
-        # Secondary orbital elements
-        self.period = 0.0
-
-        # Kinematics
-        self.jposition = np.zeros(3)
-        self.position = np.zeros(3)  # (pos * unit.au).to(unit.meter).value
-        self.velocity = np.zeros(3)  # (vel * unit.km / unit.second).to(unit.meter / unit.second).value
-        self.acceleration = np.zeros(3)  # * unit.meter / unit.second**2
-        self.last_acceleration = np.zeros(3)  # * unit.meter / unit.second**2
-        self.position_history = []
-        self.jposition_history = []
 
         # Intrinsic characteristics
         self.kinetic_energy = 0.0
         self.luminosity = 4 * np.pi * radius ** 2 * sigma_sb.value * temperature ** 4
         self.flux = 0.0  # * unit.J / (unit.meter * unit.second)
 
+        # Kinematics
+        self.position = np.zeros(3)  #(pos * unit.au).to(unit.meter).value
+        self.velocity = np.zeros(3)  #(vel * unit.km / unit.second).to(unit.meter / unit.second).value
+        self.acceleration = np.zeros(3)  # * unit.meter / unit.second**2
+        self.last_acceleration = np.zeros(3)  # * unit.meter / unit.second**2
+        self.position_history = []
+        self.jposition_history = []
+
         # Calculate the total flux of the object
         self.total_flux()
+
+    def set_cartesian(self, elements):
+        self.position, self.velocity = np.array(elements[0:3]), np.array(elements[3:])
+
+    def set_keplerian(self, elements):
+        a, ecc, inc, arg_peri, long_node, true_anomaly = elements
+        
+        # Orbital elements
+        self.semimajor_axis = (a * unit.AU).to(unit.meter).value
+        self.eccentricity = ecc
+        self.inclination = np.deg2rad(inc)
+        self.arg_periastron = np.deg2rad(arg_peri)
+        self.long_node = np.deg2rad(long_node)
+        self.true_anomaly = np.deg2rad(true_anomaly)
+        # self.epoch = epoch
+
+        # Secondary orbital elements
+        self.period = 0.0
 
         # Calculate initial kinematics
         if self.semimajor_axis > 0.0:
@@ -307,9 +288,6 @@ class Body():
 
     def save_position(self):
         self.position_history.append(self.position)
-
-    def save_jposition(self):
-        self.jposition_history.append(self.jposition)
 
     def get_kinetic_energy(self):
         self.kinetic_energy = 0.5 * self.mass * np.sum(v ** 2 for v in self.velocity)
@@ -357,7 +335,7 @@ class Body():
     def get_kinematics(self):
         mu = G.value * self.mass
         a, e, i = self.semimajor_axis, self.eccentricity, self.inclination
-        W, w = self.right_ascension, self.arg_periastron
+        W, w = self.long_node, self.arg_periastron
         t, T = 0.0, 212.12316
 
         mean_anomaly = self.true_anomaly # np.sqrt(mu / a**3) * (t - T)
@@ -366,6 +344,7 @@ class Body():
         # Unrotated positions and velocities
         p = (1.0 - e**2)
         mean_motion = np.sqrt(mu/a**3)
+
         position = np.array([
             a * (np.cos(eccentric_anomaly) - e),
             p * a * np.sin(eccentric_anomaly),
@@ -378,30 +357,42 @@ class Body():
             0.0
         ])
 
+        # position = np.array([
+        #     position[0] * np.sin(i),
+        #     position[1],
+        #     -position[0] * np.cos(i)
+        # ])
+        #
+        # velocity = np.array([
+        #     velocity[0] * np.sin(i),
+        #     velocity[1],
+        #     -velocity[0] * np.cos(i)
+        # ])
+
         # Rotate by argument of periastron in orbit plane
-        pposition = np.array([
+        position = np.array([
             position[0] * np.cos(w) - position[1] * np.sin(w),
             position[0] * np.sin(w) + position[1] * np.cos(w),
             position[2]
         ])
 
-        pvelocity = np.array([
+        velocity = np.array([
             velocity[0] * np.cos(w) - velocity[1] * np.sin(w),
             velocity[0] * np.sin(w) + velocity[1] * np.cos(w),
-            position[2]
+            velocity[2]
         ])
 
         # Rotation by incliantion about x axis
         position = np.array([
-            pposition[0],
-            pposition[1] * np.cos(i) - pposition[2] * np.sin(i),
-            pposition[1] * np.sin(i) + pposition[2] * np.cos(i)
+            position[0],
+            position[1] * np.cos(i) - position[2] * np.sin(i),
+            position[1] * np.sin(i) + position[2] * np.cos(i)
         ])
 
         velocity = np.array([
-            pvelocity[0],
-            pvelocity[1] * np.cos(i) - pvelocity[2] * np.sin(i),
-            pvelocity[1] * np.sin(i) + pvelocity[2] * np.cos(i)
+            velocity[0],
+            velocity[1] * np.cos(i) - velocity[2] * np.sin(i),
+            velocity[1] * np.sin(i) + velocity[2] * np.cos(i)
         ])
 
         # Rotate by longitude of the node about the z axis
@@ -416,90 +407,51 @@ class Body():
             velocity[0] * np.sin(W) + velocity[1] * np.cos(W),
             velocity[2]
         ])
-        self.position = position
-        self.velocity = velocity
+        self.jposition = position
+        self.jvelocity = velocity
 
-    def get_kinematics_new(self):
-        mu = G.value * self.mass
-        a, e, i = self.semimajor_axis, self.eccentricity, self.inclination
-        Omega, omega = self.right_ascension, self.arg_periastron
-        t, T = 0.0, 30.0
-
-        mean_anomaly = self.true_anomaly #.sqrt(mu / a**3) * (t - T)
-        eccentric_anomaly = self._get_eccentric_anomaly(mean_anomaly, e)
-        true_anomaly = 2.0 * np.arctan(((1.0 + e)/(1.0 - e))**0.5 * np.tan(eccentric_anomaly * 0.5))
-        true_anomaly = self.true_anomaly
-        p = a * (1.0 - e**2)
-        r = p / (1.0 + e * np.cos(true_anomaly))
-
-        h = (mu * a * (1.0 - e**2))**0.5
-
-
-
-        # self.position = np.array([
-        #     r * (np.cos(Omega) * np.cos(omega + true_anomaly) - np.sin(Omega) * np.sin(omega + true_anomaly) * np.cos(i)),
-        #     r * (np.sin(Omega) * np.cos(omega + true_anomaly) + np.cos(Omega) * np.sin(omega + true_anomaly) * np.cos(i)),
-        #     r * (np.sin(i) * np.sin(omega + true_anomaly))
-        # ])
-        # self.velocity = np.array([
-        #     (h * e / (r * p)) * np.sin(true_anomaly) - (h/r) * (np.cos(Omega) * np.sin(omega + true_anomaly) + np.sin(Omega) * np.cos(omega + true_anomaly) * np.cos(i)),
-        #     (h * e / (r * p)) * np.sin(true_anomaly) - (h/r) * (np.sin(Omega) * np.sin(omega + true_anomaly) - np.cos(Omega) * np.cos(omega + true_anomaly) * np.cos(i)),
-        #     (h * e / (r * p)) * np.sin(true_anomaly) + (h/r) * np.sin(i) * np.cos(omega + true_anomaly)
-        # ])
-
-        self.position = np.array([
-            # self.position[2] * np.cos(self.inclination) +
-            self.position[0] * np.sin(self.inclination),
-            self.position[1],
-            # self.position[2] * np.sin(self.inclination)
-            - self.position[0] * np.cos(self.inclination)
-        ])
-
-        self.velocity = np.array([
-            # self.velocity[2] * np.cos(self.inclination) +
-            self.velocity[0] * np.sin(self.inclination),
-            self.velocity[1],
-            # self.velocity[2] * np.sin(self.inclination)
-            - self.velocity[0] * np.cos(self.inclination)
-        ])
-
-        print(self.velocity)
-
-    def get_kinematics_old(self):
-        mu = G.value * self.mass
-        p = self.semimajor_axis * (1.0 - self.eccentricity**2)
-        r = p / (1.0 + self.eccentricity * np.cos(self.true_anomaly))
-        v = np.sqrt(G.value * self.mass * (2.0/r - 1.0/self.semimajor_axis))
-        vr = -v * np.sin(self.inclination) * np.sin(self.true_anomaly + self.arg_periastron)
-
-
-
-        position = np.array([
-            (p * np.cos(self.true_anomaly)) / (1 + self.eccentricity * np.cos(self.true_anomaly)),
-            (p * np.sin(self.true_anomaly)) / (1 + self.eccentricity * np.cos(self.true_anomaly)),
-            0.0
-        ])
-
-        velocity = np.array([
-             -np.sqrt(mu / p) * np.sin(self.true_anomaly),
-            np.sqrt(mu / p) * (self.eccentricity + np.cos(self.true_anomaly)),
-           0.0
-        ])
 
 if __name__ == '__main__':
-    system = System()
-    # mass, radius, temperature, a, ecc, inc, arg_peri, right_asc, true anomaly
-    # system.add_body(5.9, 3.2, 15200.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-                    # np.array([-0.80971, 0.0, 0.0]), np.array([0.0, -36.2, 0.0]))
-    # system.add_body(5.6, 2.9, 13700.0, 0.043166, 0.1573, 88.89, 214.6, 0.0, 180.0)
-    #                 np.array([0.80971, 0.0, 0.0]), np.array([0.0, 36.2, 0.0]))
+    sys = System()
+    # mass, radius, temperature, a, ecc, inc, arg_peri, long_node, true anomaly
+    # sys.add_body(5.9, 3.2, 15200.0,
+    #                 cartesian=np.array([6.12917e9, 0.0, 0.0, 0.0, 112824.494, 0.0]),
+    #                 # keplerian=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    # )
+    #
+    # sys.add_body(5.6, 2.9, 13700.0,
+    #                 cartesian=np.array([-6.45754e9, 0.0, 0.0, 0.0, -118868.663, 0.0]),
+    #                 # keplerian=[0.043166, 0.1573, 88.89, 214.6, 0.0, 180.0]
+    # )
 
-    system.add_body(0.6897, 0.6489, 4450.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-    system.add_body(0.20255, 0.22623, 3000.0, 0.22431, 0.15944, 90.30401, 263.464, 0.0, 188.884)
-    system.add_body(0.000317770494, 0.07497, 170.0, 0.7048, 0.0069, 90.032, 318.0, 0.003, 137.1126)
+    # sys.add_body(0.6897, 0.6489, 4450.0, keplerian=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    # sys.add_body(0.20255, 0.22623, 3000.0, keplerian=[0.22431, 0.15944, 90.30401, 263.464, 0.0, 188.884])
+    # sys.add_body(0.000317770494, 0.07497, 170.0, keplerian=[0.7048, 0.0069, 90.032, 318.0, 0.003, 137.1126])
 
-    t0 = time.time()
-    system.run(864.0, 10000)
-    print(time.time() - t0)
-    # system_run = numba.autojit(system.run)
-    # system_run(864.0, 1000)
+    sys.add_body(1.33573403e+00, 8.73025323e-01, 1.53471015e+03, cartesian=[6.91449508e-01, 2.96664670e-01, -4.70239875e-02, -2.13321438e+05, 8.49384841e+04, 4.55031871e+05])
+    sys.add_body(1.60574401e-02, 8.79052129e-01, 1.40343297e+03, cartesian=[8.06663616e-01, 1.46349634e+00, 8.01800603e-02, 5.35363463e+05, 2.97595050e+05, 6.90177924e+05])
+    sys.add_body(5.65249756e-01, 5.91525241e-01, 2.01850878e+02, cartesian=[-3.47393485e-01, 3.08620195e-01, 3.18015274e-03, 3.96692539e+05, -1.42914868e+05, 6.46771648e+05])
+
+    # system.add_body(1.0, 1.0, 7877.0, np.zeros(3), np.zeros(3))
+    # system.add_body(3.0024584e-6, 0.009155, 300.0, np.array([1.496e11, 0.0, 0.0]), np.array([0.0, 29800.0, 0.0]))
+
+    rx, ry, ryerr = main.read_data('data/sub_detrended_005897826.txt')
+    sys.run(len(rx))
+
+
+    for body in sys.all_bodies:
+        x, y, z = zip(*body.position_history)
+        pylab.plot(x, y, label=body.mass)
+        pylab.plot(x[0], y[0], 'o')
+        pylab.legend(loc=0)
+    pylab.show()
+
+    for body in sys.all_bodies:
+        x, y, z = zip(*body.position_history)
+        # pylab.plot(z, y, '--')
+        pylab.plot(z, y)
+    pylab.show()
+
+    pylab.plot(rx, ry, 'k+')
+    pylab.plot(rx, sys.luminosity_history/max(sys.luminosity_history))
+    pylab.show()

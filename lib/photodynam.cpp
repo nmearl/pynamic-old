@@ -88,9 +88,9 @@
 using namespace std;
 
 extern "C" {
-  void start(double *out_fluxes, int N, double t0, double maxh, double orbit_error,
-            int in_times_size, double *in_times, double *mass, double *radii, double *flux, double *u1,
-            double *u2, double *a, double *e, double *inc, double *om, double *ln, double *ma);
+  void start(double *out_fluxes, int N, double t0, double maxh, double orbit_error, int in_times_size,
+            double *in_times, double *mass, double *radii, double *flux, double *u1, double *u2, double *a, double *e,
+            double *inc, double *om, double *ln, double *ma);
 }
 
 
@@ -107,49 +107,17 @@ void start(double *out_fluxes, int N, double t0, double maxh, double orbit_error
 	//	of NBodyState which returns NX3 array of barycentric, light-time
 	//	corrected coordinates
 
-//	flux = occultn(state.getBaryLT(),radii,u1,u2,flux,N);
+    //	flux = occultn(state.getBaryLT(),radii,u1,u2,flux,N);
 
 	// Now integrate forward in time to time t0+100 with stepsize 0.01 days orbit
 	//	error tolerance of 1e-20 and minimum step size of 1e-10 days
 
     #pragma omp parallel for
 	for (int i = 0; i < in_times_size; i++) {
-	    t = in_times[i];
-        status = state(t,maxh,orbit_error,1.0e-4);
+        status = state(in_times[i],maxh,orbit_error,1.0e-4);
 
 	    // Now get the flux at the new time
         out_fluxes[i] = occultn(state.getBaryLT(),radii,u1,u2,flux,N);
 	}
-
-	// Print out the barycentric, light-time corrected x coordinate of body 0
-//	cout << state.X_LT(0) << endl;
-
-//  double mj[N-1];
-//  char input[100];
-//
-//  NBodyState state(mass,a,e,inc,om,ln,ma,N,t0);
-//  state.kep_elements(mj,a,e,inc,om,ln,ma);
-//  cout.setf(ios_base::scientific);
-//
-//  double e0 = state.getE();
-//  double lx0,ly0,lz0,lx,ly,lz; state.getL(&lx0,&ly0,&lz0);
-//
-//  double t;
-//  cout.setf(ios_base::scientific);
-////  char word_list[4] = {'t', 'F'}; //, 'E', 'e'};
-////  std::vector<char> words(word_list, word_list+2);
-//
-//  for (int j = 0; j < in_times_size; j++) {
-//    cout << j << endl;
-//    t = in_times[j];
-//    state(t,maxh,orbit_error,1e-16);
-//
-//    out_times[j] = t;
-//    out_fluxes[j] = occultn(state.getBaryLT(),radii,u1,u2,flux,N);
-//   }
-////    cout << endl;
-//
-//  state.getL(&lx,&ly,&lz);
-//  state.kep_elements(mj,a,e,inc,om,ln,ma);
 
 }
