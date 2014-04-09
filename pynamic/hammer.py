@@ -20,7 +20,7 @@ def lnprior(theta, N):
         and len(u2[(u2 > 1.0) | (u2 < 0.0)]) == 0 \
         and len(a[(a < 0.0) | (a > 100.0)]) == 0 \
         and len(e[(e > 1.0) | (e < 0.0)]) == 0 \
-        and len(inc[(inc > np.pi) | (inc < 0.0)]) == 0 \
+        and len(inc[(inc > 2.0 * np.pi) | (inc < 0.0)]) == 0 \
         and len(om[(om > (2.0 * np.pi)) | (om < -(2.0 * np.pi))]) == 0 \
         and len(ln[(ln > (2.0 * np.pi)) | (ln < -(2.0 * np.pi))]) == 0 \
         and len(ma[(ma > (2.0 * np.pi)) | (ma < 0.0)]) == 0:# \
@@ -40,9 +40,10 @@ def lnlike(theta, x, y, yerr, N, t0, maxh, orbit_error):
         a, e, inc, om, ln, ma
     )
 
-    lnf = np.log(1.0e-10)  # Natural log of the underestimation fraction
-    inv_sigma2 = 1.0 / (yerr ** 2 + model ** 2 * np.exp(2 * lnf))
-    return -0.5 * (np.sum((y - model) ** 2 * inv_sigma2 - np.log(inv_sigma2)))
+    # lnf = np.log(1.0e-10)  # Natural log of the underestimation fraction
+    # inv_sigma2 = 1.0 / (yerr ** 2 + model ** 2 * np.exp(2 * lnf))
+    # return -0.5 * (np.sum((y - model) ** 2 * inv_sigma2 - np.log(inv_sigma2)))
+    return (-0.5 * ((model - y) / yerr)**2).sum()
 
 
 def lnprob(theta, x, y, yerr, N, t0, maxh, orbit_error):
@@ -56,7 +57,7 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
     #np.seterr(all='raise')
 
     N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
-    theta = np.concatenate((masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma))
+    theta = np.concatenate([masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma])
     yerr = np.array(yerr)
 
     # Set up the sampler.
@@ -107,7 +108,7 @@ def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname)
     # Remove 'burn in' region
     print('Burning in; creating sampler chain...')
 
-    burnin = 50
+    burnin = int(.25 * niterations)
     samples = sampler.chain[:, burnin:, :].reshape((-1, ndim))
 
     # Compute the quantiles.

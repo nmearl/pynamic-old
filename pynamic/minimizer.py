@@ -9,10 +9,14 @@ twopi = 2.0 * np.pi
 
 
 def per_iteration(params, i, resids, x, y, yerr, *args, **kws):
-    N, t0, maxh, orbit_error = params['N'], params['t0'], params['maxh'], params['orbit_error']
-    split_params = _get_parameters(params)
-    redchisqr = utilfuncs.reduced_chisqr(np.concatenate(split_params), x, y, yerr, N, t0, maxh, orbit_error)
-    utilfuncs.iterprint(N, np.concatenate(_get_parameters(params)), 0.0, redchisqr, 0.0, 0.0)
+    if i%100 == 0.0:
+        ncores, fname = args
+        N, t0, maxh, orbit_error = params['N'].value, params['t0'].value, \
+                                   params['maxh'].value, params['orbit_error'].value
+        split_params = _get_parameters(params)
+        redchisqr = utilfuncs.reduced_chisqr(np.concatenate(split_params), x, y, yerr, N, t0, maxh, orbit_error)
+        utilfuncs.iterprint(N, np.concatenate(_get_parameters(params)), 0.0, redchisqr, 0.0, 0.0)
+        utilfuncs.report_as_input(N, t0, maxh, orbit_error, _get_parameters(params), fname)
 
 
 def _get_parameters(params, full=False):
@@ -62,7 +66,7 @@ def generate(in_params, x, y, yerr, fit_method, ncores, fname):
 
     params = Parameters()
     params.add('N', value=N, vary=False)
-    params.add('t0', value=t0, vary=True)
+    params.add('t0', value=t0, vary=False)
     params.add('maxh', value=maxh, vary=False)
     params.add('orbit_error', value=orbit_error, vary=False)
 
@@ -87,7 +91,7 @@ def generate(in_params, x, y, yerr, fit_method, ncores, fname):
             params.add('ma_{0}'.format(i), value=ma[i - 1], min=0.0, max=twopi)
 
     print('Generating maximum likelihood values...')
-    results = minimize(residual, params, args=(x, y, yerr, ncores), iter_cb=per_iteration, method=fit_method)
+    results = minimize(residual, params, args=(x, y, yerr, ncores, fname), iter_cb=per_iteration, method=fit_method)
 
     # Save the final outputs
     print "Writing report..."

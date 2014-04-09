@@ -88,13 +88,13 @@
 using namespace std;
 
 extern "C" {
-  void start(double *out_fluxes, int N, double t0, double maxh, double orbit_error, int in_times_size,
+  void start(double *out_fluxes, double *rv, int N, double t0, double maxh, double orbit_error, int in_times_size,
             double *in_times, double *mass, double *radii, double *flux, double *u1, double *u2, double *a, double *e,
             double *inc, double *om, double *ln, double *ma);
 }
 
 
-void start(double *out_fluxes, int N, double t0, double maxh, double orbit_error, int in_times_size,
+void start(double *out_fluxes, double *rv, int N, double t0, double maxh, double orbit_error, int in_times_size,
             double *in_times, double *mass, double *radii, double *flux, double *u1, double *u2, double *a, double *e,
             double *inc, double *om, double *ln, double *ma) {
 
@@ -118,6 +118,7 @@ void start(double *out_fluxes, int N, double t0, double maxh, double orbit_error
 
 	    // Now get the flux at the new time
         out_fluxes[i] = occultn(state.getBaryLT(),radii,u1,u2,flux,N);
+        rv[i] = state.V_Z_LT(2);
 	}
 
 }

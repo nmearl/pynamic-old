@@ -11,6 +11,7 @@ import hammer
 import utilfuncs
 import argparse
 import re
+import multinest
 
 
 def read_data(data_file):
@@ -167,6 +168,8 @@ def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspa
             nwalkers, niterations, ncores, randpars,
             fname
         )
+    elif fit_method == 'multinest':
+        multinest.generate(params, x, y, yerr, ncores)
 
     else:
         minimizer.generate(
@@ -181,7 +184,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Photometric dynamical modeling code.')
     parser.add_argument('data', help='data file containing detrended light curve')
     parser.add_argument('-f', '--fit', help='fit method used to minimize',
-                        choices=['mcmc', 'leastsq', 'nelder', 'lbfgsb', 'anneal', 'powell',
+                        choices=['multinest', 'mcmc', 'leastsq', 'nelder', 'lbfgsb', 'anneal', 'powell',
                                  'cg', 'newton', 'cobyla', 'slsqp', 'plot', 'cluster'], default='leastsq')
     parser.add_argument('-i', '--input', help='input file containing initial parameters (overrides --system)')
     parser.add_argument('-w', '--walkers', type=int, default=250,
