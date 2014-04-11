@@ -42,20 +42,21 @@ start.argtypes = [
 
 def run(inputs):
     sub_fluxes, sub_rv, N, t0, maxh, orbit_error, in_times_size, in_times, \
-    mass, radii, flux, u1, u2, a, e, inc, om, ln, ma = inputs
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = inputs
 
     start(
         sub_fluxes, sub_rv,
         N, t0, maxh, orbit_error,
         in_times_size, in_times,
-        mass, radii, flux, u1, u2, a, e, inc, om, ln, ma
+        masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
     )
 
-    return sub_fluxes
+    return sub_fluxes, sub_rv
 
 
 def multigenerate(ncores, N, t0, maxh, orbit_error, in_times, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma):
     chunk = int(len(in_times) / ncores)
+    tot_flux, tot_rv = [], []
 
     inputs = [
         [
@@ -80,23 +81,30 @@ def multigenerate(ncores, N, t0, maxh, orbit_error, in_times, masses, radii, flu
     # for sub_fluxes in result:
     #     fluxes = np.append(fluxes, sub_fluxes)
 
-    return np.concatenate(result)
+    result = np.array(result)
+
+    # tot_rv = np.concatenate(result[:, 1]) * 1731 - 27.278 - 0.26
+    # pylab.plot(in_times, tot_rv)
+    #
+    # time, data, err = np.loadtxt('data/005897_rv.dat', unpack=True)
+    #
+    # pylab.plot(time[np.argsort(time)], data[np.argsort(time)], 'o')
+    # pylab.show()
+
+    return np.concatenate(result[:, 0]), np.concatenate(result[:, 1]) * 1731 - 27.278 - 0.26
 
 
 def generate(N, t0, maxh, orbit_error, in_times, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma):
 
-    fluxes = np.zeros(len(in_times))
-    rv = np.zeros(len(in_times))
+    tot_flux = np.zeros(len(in_times))
+    tot_rv = np.zeros(len(in_times))
 
     start(
-        fluxes, rv,
+        tot_flux, tot_rv,
         N, t0, maxh, orbit_error,
         len(in_times), in_times,
         masses, radii, fluxes, u1, u2,
         a, e, inc, om, ln, ma
     )
 
-    # pylab.plot(in_times, rv)
-    # pylab.show()
-
-    return fluxes
+    return tot_flux, tot_rv * 1731 - 27.278 - 0.26

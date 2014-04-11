@@ -40,6 +40,16 @@ def random_pos(N, nwalkers):
     return np.array(pos)
 
 
+def find_nearest(array, targets):
+    res = []
+
+    for tar in targets:
+        idx = np.argmin(np.abs(array - tar))
+        res.append(idx)
+
+    return np.array(res)
+
+
 def split_parameters(theta, N):
     sys_params, ind_params = theta[:5 * N], theta[5 * N:]
 

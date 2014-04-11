@@ -53,18 +53,18 @@ def read_input(input_file):
     maxh = [float(i.strip()) for i in input_pars[2].split('#')][0]
     orbit_error = [float(i.strip()) for i in input_pars[3].split('#')][0]
 
-    masses = [float(i.strip()) for i in input_pars[4].split()]
-    radii = [float(i.strip()) for i in input_pars[5].split()]
-    fluxes = [float(i.strip()) for i in input_pars[6].split()]
-    u1 = [float(i.strip()) for i in input_pars[7].split()]
-    u2 = [float(i.strip()) for i in input_pars[8].split()]
+    masses = np.array([float(i.strip()) for i in input_pars[4].split()])
+    radii = np.array([float(i.strip()) for i in input_pars[5].split()])
+    fluxes = np.array([float(i.strip()) for i in input_pars[6].split()])
+    u1 = np.array([float(i.strip()) for i in input_pars[7].split()])
+    u2 = np.array([float(i.strip()) for i in input_pars[8].split()])
 
-    a = [float(i.strip()) for i in input_pars[9].split()]
-    e = [float(i.strip()) for i in input_pars[10].split()]
-    inc = [float(i.strip()) for i in input_pars[11].split()]
-    om = [float(i.strip()) for i in input_pars[12].split()]
-    ln = [float(i.strip()) for i in input_pars[13].split()]
-    ma = [float(i.strip()) for i in input_pars[14].split()]
+    a = np.array([float(i.strip()) for i in input_pars[9].split()])
+    e = np.array([float(i.strip()) for i in input_pars[10].split()])
+    inc = np.array([float(i.strip()) for i in input_pars[11].split()])
+    om = np.array([float(i.strip()) for i in input_pars[12].split()])
+    ln = np.array([float(i.strip()) for i in input_pars[13].split()])
+    ma = np.array([float(i.strip()) for i in input_pars[14].split()])
 
     return N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
 
@@ -74,7 +74,7 @@ def get_random_pos(N, t0, maxh, orbit_error):
     return N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
 
 
-def plot_model(params, x, y, yerr):
+def plot_model(params, x, y, yerr, rv_data):
     """Simple plot routine to visualize the modelled input parameters.
 
     @param params: Tuple of the parameters.
@@ -84,7 +84,7 @@ def plot_model(params, x, y, yerr):
     """
     N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
 
-    model = photometry.generate(
+    model_flux, model_rv = photometry.multigenerate(2,
         N, t0,
         maxh, orbit_error,
         x,
@@ -92,17 +92,17 @@ def plot_model(params, x, y, yerr):
         a, e, inc, om, ln, ma
     )
 
-    print("Reduced chi-square:", np.sum(((y - model) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6)))
-    inv_sigma2 = 1.0 / (yerr ** 2 + model ** 2 * np.exp(2.0 * np.log(1.0e-10)))
-    print("Custom optimized value:", -0.5 * (np.sum((y - model) ** 2 * inv_sigma2 - np.log(inv_sigma2))))
+    print("Reduced chi-square:", np.sum(((y - model_flux) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6)))
+    inv_sigma2 = 1.0 / (yerr ** 2 + model_flux ** 2 * np.exp(2.0 * np.log(1.0e-10)))
+    print("Custom optimized value:", -0.5 * (np.sum((y - model_flux) ** 2 * inv_sigma2 - np.log(inv_sigma2))))
 
     pylab.plot(x, y, 'k+')
-    pylab.plot(x, model, 'r+')
+    pylab.plot(x, model_flux, 'r+')
 
     pylab.show()
 
 
-def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspars, randpars):
+def main(data_file, rv_file, fit_method, input_file, nwalkers, niterations, ncores, syspars, randpars):
     """The main function mediates the reading of the data and input parameters, and starts the optimization using the
     specified method.
 
@@ -135,6 +135,11 @@ def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspa
     else:
         return
 
+    rv_data = None
+
+    if rv_file:
+        rv_data = np.loadtxt(rv_file, unpack=True)
+
     time_start = time.time()
 
     fname = data_file.split('/')[-1].split('.')[0]
@@ -149,31 +154,32 @@ def main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspa
 
     if fit_method == 'mcmc':
         hammer.generate(
-            params, x[:n], y[:n], yerr[:n],
+            params, x[:n], y[:n], yerr[:n], rv_data,
             nwalkers, niterations, ncores, randpars,
             fname
         )
 
     elif fit_method == 'plot':
-        plot_model(params, x[:n], y[:n], yerr[:n])
+        plot_model(params, x[:n], y[:n], yerr[:n], rv_data)
 
     elif fit_method == 'cluster':
         params = minimizer.generate(
-            params, x[:n], y[:n], yerr[:n], 'leastsq',
+            params, x[:n], y[:n], yerr[:n],
+            rv_data, 'leastsq',
             ncores, fname
         )
 
         hammer.generate(
-            params, x[:n], y[:n], yerr[:n],
+            params, x[:n], y[:n], yerr[:n], rv_data,
             nwalkers, niterations, ncores, randpars,
             fname
         )
     elif fit_method == 'multinest':
-        multinest.generate(params, x, y, yerr, ncores)
+        multinest.generate(params, x, y, yerr, rv_data, ncores)
 
     else:
         minimizer.generate(
-            params, x[:n], y[:n], yerr[:n], fit_method,
+            params, x[:n], y[:n], yerr[:n], rv_data, fit_method,
             ncores, fname
         )
 
@@ -195,9 +201,12 @@ if __name__ == '__main__':
                         help='number of cores to utilize')
     parser.add_argument('-s', '--system', nargs=4,
                         help='four initial system parameters: N, t0, maxh, orbit_error')
+    parser.add_argument('-rv', '--radial_velocity',
+                        help='path to the radial velocity data')
 
     args = parser.parse_args()
     data_file = args.data
+    rv_file = args.radial_velocity
     fit_method = args.fit
     input_file = args.input
     nwalkers = args.walkers
@@ -206,4 +215,4 @@ if __name__ == '__main__':
     syspars = args.system
     randpars = True if not input_file else False
 
-    main(data_file, fit_method, input_file, nwalkers, niterations, ncores, syspars, randpars)
+    main(data_file, rv_file, fit_method, input_file, nwalkers, niterations, ncores, syspars, randpars)

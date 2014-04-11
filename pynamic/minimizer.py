@@ -9,7 +9,7 @@ twopi = 2.0 * np.pi
 
 
 def per_iteration(params, i, resids, x, y, yerr, *args, **kws):
-    if i%100 == 0.0:
+    if i%10 == 0.0:
         ncores, fname = args
         N, t0, maxh, orbit_error = params['N'].value, params['t0'].value, \
                                    params['maxh'].value, params['orbit_error'].value
@@ -54,14 +54,16 @@ def fitfunc(params, x, ncores):
     return out_fluxes
 
 
-def residual(params, x, y, yerr, ncores, *args):
-    model = fitfunc(params, x, ncores)
-    weighted = (model - y) / yerr
+def residual(params, x, y, yerr, rv_data, ncores, *args):
+    model_flux, model_rv = fitfunc(params, x, ncores)
+    weighted = (model_flux - y) / yerr
+    # if rv_data:
+    #     weighted += (model_rv - utilfuncs.find_nearest(x, rv_data[0]))
     # per_iteration(params, y, yerr, model, chi2)
     return weighted
 
 
-def generate(in_params, x, y, yerr, fit_method, ncores, fname):
+def generate(in_params, x, y, yerr, rv_data, fit_method, ncores, fname):
     N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = in_params
 
     params = Parameters()
@@ -86,12 +88,12 @@ def generate(in_params, x, y, yerr, fit_method, ncores, fname):
             params.add('a_{0}'.format(i), value=a[i - 1], min=0.0, max=10.0)
             params.add('e_{0}'.format(i), value=e[i - 1], min=0.0, max=1.0)
             params.add('inc_{0}'.format(i), value=inc[i - 1], min=0.0, max=np.pi)
-            params.add('om_{0}'.format(i), value=om[i - 1], min=-twopi, max=twopi)
-            params.add('ln_{0}'.format(i), value=ln[i - 1], min=-twopi, max=twopi)
+            params.add('om_{0}'.format(i), value=om[i - 1], min=0.0, max=twopi)
+            params.add('ln_{0}'.format(i), value=ln[i - 1], min=0.0, max=twopi)
             params.add('ma_{0}'.format(i), value=ma[i - 1], min=0.0, max=twopi)
 
     print('Generating maximum likelihood values...')
-    results = minimize(residual, params, args=(x, y, yerr, ncores, fname), iter_cb=per_iteration, method=fit_method)
+    results = minimize(residual, params, args=(x, y, yerr, rv_data, ncores, fname), iter_cb=per_iteration, method=fit_method)
 
     # Save the final outputs
     print "Writing report..."
