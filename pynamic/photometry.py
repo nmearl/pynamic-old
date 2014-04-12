@@ -56,7 +56,6 @@ def run(inputs):
 
 def multigenerate(ncores, N, t0, maxh, orbit_error, in_times, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma):
     chunk = int(len(in_times) / ncores)
-    tot_flux, tot_rv = [], []
 
     inputs = [
         [

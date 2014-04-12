@@ -98,6 +98,8 @@ def plot_model(params, x, y, yerr, rv_data):
 
     pylab.plot(x, y, 'k+')
     pylab.plot(x, model_flux, 'r+')
+    # pylab.xlim(170,171)
+    # pylab.ylim(0.97, 1.005)
 
     pylab.show()
 

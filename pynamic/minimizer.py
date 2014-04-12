@@ -8,15 +8,15 @@ import utilfuncs
 twopi = 2.0 * np.pi
 
 
-def per_iteration(params, i, resids, x, y, yerr, *args, **kws):
+def per_iteration(params, i, resids, x, y, yerr, rv_data, *args, **kws):
     if i%10 == 0.0:
         ncores, fname = args
         N, t0, maxh, orbit_error = params['N'].value, params['t0'].value, \
                                    params['maxh'].value, params['orbit_error'].value
         split_params = _get_parameters(params)
         redchisqr = utilfuncs.reduced_chisqr(np.concatenate(split_params), x, y, yerr, N, t0, maxh, orbit_error)
-        utilfuncs.iterprint(N, np.concatenate(_get_parameters(params)), 0.0, redchisqr, 0.0, 0.0)
-        utilfuncs.report_as_input(N, t0, maxh, orbit_error, _get_parameters(params), fname)
+        utilfuncs.iterprint(N, np.concatenate(split_params), 0.0, redchisqr, 0.0, 0.0)
+        utilfuncs.report_as_input(N, t0, maxh, orbit_error, split_params, fname)
 
 
 def _get_parameters(params, full=False):
@@ -43,7 +43,7 @@ def _get_parameters(params, full=False):
 def fitfunc(params, x, ncores):
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = _get_parameters(params)
 
-    out_fluxes = photometry.multigenerate(ncores,
+    mod_fluxes, mod_rv = photometry.multigenerate(ncores,
         params['N'].value, params['t0'].value,
         params['maxh'].value, params['orbit_error'].value,
         x,
@@ -51,12 +51,12 @@ def fitfunc(params, x, ncores):
         a, e, inc, om, ln, ma
     )
 
-    return out_fluxes
+    return mod_fluxes, mod_rv
 
 
 def residual(params, x, y, yerr, rv_data, ncores, *args):
-    model_flux, model_rv = fitfunc(params, x, ncores)
-    weighted = (model_flux - y) / yerr
+    mod_flux, mod_rv = fitfunc(params, x, ncores)
+    weighted = (mod_flux - y) / yerr
     # if rv_data:
     #     weighted += (model_rv - utilfuncs.find_nearest(x, rv_data[0]))
     # per_iteration(params, y, yerr, model, chi2)

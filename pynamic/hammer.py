@@ -53,7 +53,7 @@ def lnprob(theta, x, y, yerr, N, t0, maxh, orbit_error):
     return lp + lnlike(theta, x, y, yerr, N, t0, maxh, orbit_error)
 
 
-def generate(params, x, y, yerr, nwalkers, niterations, ncores, randpars, fname):
+def generate(params, x, y, yerr, rv_data, nwalkers, niterations, ncores, randpars, fname):
     #np.seterr(all='raise')
 
     N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params

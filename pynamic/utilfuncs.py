@@ -62,14 +62,14 @@ def split_parameters(theta, N):
 def reduced_chisqr(theta, x, y, yerr, N, t0, maxh, orbit_error):
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = split_parameters(theta, N)
 
-    model = photometry.generate(
+    mod_flux, mod_rv = photometry.generate(
         N, t0, maxh, orbit_error,
         x,
         masses, radii, fluxes, u1, u2,
         a, e, inc, om, ln, ma
     )
 
-    return np.sum(((y - model) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6))
+    return np.sum(((y - mod_flux) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6))
 
 
 def iterprint(N, bestpos, maxlnp, redchisqr, percomp, tleft):
