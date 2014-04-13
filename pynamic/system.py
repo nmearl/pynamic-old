@@ -9,7 +9,7 @@ import time
 import math
 from numpy.polynomial.legendre import legval
 from numpy.linalg import norm
-import main
+# import main
 
 # Define some global variables
 sigma = sigma_sb.value  # sb constant
@@ -50,16 +50,102 @@ class System():
         # Calculate total mass
         self.tot_mass = np.sum(b.mass for b in self.all_bodies)
 
-    def prepare(self):
-        pass
+        # Calculate jacobian mass distribution of bodies
+        jmass = []
+
+        for i in range(len(self.all_bodies)):
+            if i == 0:
+                jmass.append(self.all_bodies[0].mass)
+            else:
+                jmass.append(jmass[i-1] + self.all_bodies[i].mass)
+
+        self.jmass = np.array(jmass)
+
+    def get_kinematics(self):
+        for i in range(1, len(self.all_bodies)):
+            mu = self.jmass[i]
+            body = self.all_bodies[i]
+            a, e, i = body.semimajor_axis, body.eccentricity, body.inclination
+            W, w = body.long_node, body.arg_periastron
+            t, T = 0.0, 212.12316
+
+            mean_anomaly = body.true_anomaly # np.sqrt(mu / a**3) * (t - T)
+            eccentric_anomaly = body.get_eccentric_anomaly(mean_anomaly, e)
+
+            # Unrotated positions and velocities
+            p = (1.0 - e**2)
+            mean_motion = np.sqrt(mu/a**3)
+
+            position = np.array([
+                a * (np.cos(eccentric_anomaly) - e),
+                p * a * np.sin(eccentric_anomaly),
+                0.0
+            ])
+
+            velocity = np.array([
+                -a * mean_motion * np.sin(eccentric_anomaly) / (1.0 - e * np.cos(eccentric_anomaly)),
+                p * a * mean_motion * np.cos(eccentric_anomaly) / (1.0 - e * np.cos(eccentric_anomaly)),
+                0.0
+            ])
+
+            # position = np.array([
+            #     position[0] * np.sin(i),
+            #     position[1],
+            #     -position[0] * np.cos(i)
+            # ])
+            #
+            # velocity = np.array([
+            #     velocity[0] * np.sin(i),
+            #     velocity[1],
+            #     -velocity[0] * np.cos(i)
+            # ])
+
+            # Rotate by argument of periastron in orbit plane
+            position = np.array([
+                position[0] * np.cos(w) - position[1] * np.sin(w),
+                position[0] * np.sin(w) + position[1] * np.cos(w),
+                position[2]
+            ])
+
+            velocity = np.array([
+                velocity[0] * np.cos(w) - velocity[1] * np.sin(w),
+                velocity[0] * np.sin(w) + velocity[1] * np.cos(w),
+                velocity[2]
+            ])
+
+            # Rotation by incliantion about x axis
+            position = np.array([
+                position[0],
+                position[1] * np.cos(i) - position[2] * np.sin(i),
+                position[1] * np.sin(i) + position[2] * np.cos(i)
+            ])
+
+            velocity = np.array([
+                velocity[0],
+                velocity[1] * np.cos(i) - velocity[2] * np.sin(i),
+                velocity[1] * np.sin(i) + velocity[2] * np.cos(i)
+            ])
+
+            # Rotate by longitude of the node about the z axis
+            position = np.array([
+                position[0] * np.cos(W) - position[1] * np.sin(W),
+                position[0] * np.sin(W) + position[1] * np.cos(W),
+                position[2]
+            ])
+
+            velocity = np.array([
+                velocity[0] * np.cos(W) - velocity[1] * np.sin(W),
+                velocity[0] * np.sin(W) + velocity[1] * np.cos(W),
+                velocity[2]
+            ])
+
+            body.position = position
+            body.velocity = velocity
 
 
     def run(self, nsteps, dt=1626.0):
-        # for body in self.all_bodies:
-        #     body.position -= self.com
-        #     print body.position
-        #
-        # self.com = np.zeros(3)
+        # Calculate the jacobian kinematics
+        self.get_kinematics()
 
         # Run loop
         for i in range(nsteps):
@@ -107,7 +193,7 @@ class System():
         # pylab.plot(self.luminosity_history)
         # pylab.show()
 
-    def gforce(self):
+    def gforce_old(self):
         for body in self.all_bodies:
             body.force = np.zeros(3)  # * unit.kg * unit.meter / unit.second**2
             body.last_acceleration = body.acceleration
@@ -122,9 +208,10 @@ class System():
 
             body.acceleration = body.force / body.mass  # - G * other_body.mass * rvec / np.abs(rvec)
 
-    def gforce_old(self):
+    def gforce(self):
         all_bodies = self.all_bodies
         tot_mass = self.tot_mass
+
         for i in range(1, len(all_bodies)):
             body = all_bodies[i]
             body.last_acceleration = body.acceleration
@@ -256,6 +343,8 @@ class Body():
         # Kinematics
         self.position = np.zeros(3)  #(pos * unit.au).to(unit.meter).value
         self.velocity = np.zeros(3)  #(vel * unit.km / unit.second).to(unit.meter / unit.second).value
+        self.jposition = np.zeros(3)  #(pos * unit.au).to(unit.meter).value
+        self.jvelocity = np.zeros(3)  #(vel * unit.km / unit.second).to(unit.meter / unit.second).value
         self.acceleration = np.zeros(3)  # * unit.meter / unit.second**2
         self.last_acceleration = np.zeros(3)  # * unit.meter / unit.second**2
         self.position_history = []
@@ -281,10 +370,6 @@ class Body():
 
         # Secondary orbital elements
         self.period = 0.0
-
-        # Calculate initial kinematics
-        if self.semimajor_axis > 0.0:
-            self.get_kinematics()
 
     def save_position(self):
         self.position_history.append(self.position)
@@ -316,7 +401,7 @@ class Body():
                          self.position[1],
                          self.position[2]], dtype='float64')
 
-    def _get_eccentric_anomaly(self, me, ecc, tol=1.0e-8):
+    def get_eccentric_anomaly(self, me, ecc, tol=1.0e-8):
         ea_temp = me
         ratio = 1.0
 
@@ -332,84 +417,6 @@ class Body():
 
         return ea
 
-    def get_kinematics(self):
-        mu = G.value * self.mass
-        a, e, i = self.semimajor_axis, self.eccentricity, self.inclination
-        W, w = self.long_node, self.arg_periastron
-        t, T = 0.0, 212.12316
-
-        mean_anomaly = self.true_anomaly # np.sqrt(mu / a**3) * (t - T)
-        eccentric_anomaly = self._get_eccentric_anomaly(mean_anomaly, e)
-
-        # Unrotated positions and velocities
-        p = (1.0 - e**2)
-        mean_motion = np.sqrt(mu/a**3)
-
-        position = np.array([
-            a * (np.cos(eccentric_anomaly) - e),
-            p * a * np.sin(eccentric_anomaly),
-            0.0
-        ])
-
-        velocity = np.array([
-            -a * mean_motion * np.sin(eccentric_anomaly) / (1.0 - e * np.cos(eccentric_anomaly)),
-            p * a * mean_motion * np.cos(eccentric_anomaly) / (1.0 - e * np.cos(eccentric_anomaly)),
-            0.0
-        ])
-
-        # position = np.array([
-        #     position[0] * np.sin(i),
-        #     position[1],
-        #     -position[0] * np.cos(i)
-        # ])
-        #
-        # velocity = np.array([
-        #     velocity[0] * np.sin(i),
-        #     velocity[1],
-        #     -velocity[0] * np.cos(i)
-        # ])
-
-        # Rotate by argument of periastron in orbit plane
-        position = np.array([
-            position[0] * np.cos(w) - position[1] * np.sin(w),
-            position[0] * np.sin(w) + position[1] * np.cos(w),
-            position[2]
-        ])
-
-        velocity = np.array([
-            velocity[0] * np.cos(w) - velocity[1] * np.sin(w),
-            velocity[0] * np.sin(w) + velocity[1] * np.cos(w),
-            velocity[2]
-        ])
-
-        # Rotation by incliantion about x axis
-        position = np.array([
-            position[0],
-            position[1] * np.cos(i) - position[2] * np.sin(i),
-            position[1] * np.sin(i) + position[2] * np.cos(i)
-        ])
-
-        velocity = np.array([
-            velocity[0],
-            velocity[1] * np.cos(i) - velocity[2] * np.sin(i),
-            velocity[1] * np.sin(i) + velocity[2] * np.cos(i)
-        ])
-
-        # Rotate by longitude of the node about the z axis
-        position = np.array([
-            position[0] * np.cos(W) - position[1] * np.sin(W),
-            position[0] * np.sin(W) + position[1] * np.cos(W),
-            position[2]
-        ])
-
-        velocity = np.array([
-            velocity[0] * np.cos(W) - velocity[1] * np.sin(W),
-            velocity[0] * np.sin(W) + velocity[1] * np.cos(W),
-            velocity[2]
-        ])
-        self.jposition = position
-        self.jvelocity = velocity
-
 
 if __name__ == '__main__':
     sys = System()
@@ -424,18 +431,18 @@ if __name__ == '__main__':
     #                 # keplerian=[0.043166, 0.1573, 88.89, 214.6, 0.0, 180.0]
     # )
 
-    # sys.add_body(0.6897, 0.6489, 4450.0, keplerian=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-    # sys.add_body(0.20255, 0.22623, 3000.0, keplerian=[0.22431, 0.15944, 90.30401, 263.464, 0.0, 188.884])
-    # sys.add_body(0.000317770494, 0.07497, 170.0, keplerian=[0.7048, 0.0069, 90.032, 318.0, 0.003, 137.1126])
+    sys.add_body(0.6897, 0.6489, 4450.0, keplerian=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    sys.add_body(0.20255, 0.22623, 3000.0, keplerian=[0.22431, 0.15944, 90.30401, 263.464, 0.0, 188.884])
+    sys.add_body(0.000317770494, 0.07497, 170.0, keplerian=[0.7048, 0.0069, 90.032, 318.0, 0.003, 137.1126])
 
-    sys.add_body(1.33573403e+00, 8.73025323e-01, 1.53471015e+03, cartesian=[6.91449508e-01, 2.96664670e-01, -4.70239875e-02, -2.13321438e+05, 8.49384841e+04, 4.55031871e+05])
-    sys.add_body(1.60574401e-02, 8.79052129e-01, 1.40343297e+03, cartesian=[8.06663616e-01, 1.46349634e+00, 8.01800603e-02, 5.35363463e+05, 2.97595050e+05, 6.90177924e+05])
-    sys.add_body(5.65249756e-01, 5.91525241e-01, 2.01850878e+02, cartesian=[-3.47393485e-01, 3.08620195e-01, 3.18015274e-03, 3.96692539e+05, -1.42914868e+05, 6.46771648e+05])
+    # sys.add_body(1.33573403e+00, 8.73025323e-01, 1.53471015e+03, cartesian=[6.91449508e-01, 2.96664670e-01, -4.70239875e-02, -2.13321438e+05, 8.49384841e+04, 4.55031871e+05])
+    # sys.add_body(1.60574401e-02, 8.79052129e-01, 1.40343297e+03, cartesian=[8.06663616e-01, 1.46349634e+00, 8.01800603e-02, 5.35363463e+05, 2.97595050e+05, 6.90177924e+05])
+    # sys.add_body(5.65249756e-01, 5.91525241e-01, 2.01850878e+02, cartesian=[-3.47393485e-01, 3.08620195e-01, 3.18015274e-03, 3.96692539e+05, -1.42914868e+05, 6.46771648e+05])
 
     # system.add_body(1.0, 1.0, 7877.0, np.zeros(3), np.zeros(3))
     # system.add_body(3.0024584e-6, 0.009155, 300.0, np.array([1.496e11, 0.0, 0.0]), np.array([0.0, 29800.0, 0.0]))
 
-    rx, ry, ryerr = main.read_data('data/sub_detrended_005897826.txt')
+    rx, ry, ryerr = np.loadtxt('../data/005897826_part_llc.txt', unpack=True)
     sys.run(len(rx))
 
 

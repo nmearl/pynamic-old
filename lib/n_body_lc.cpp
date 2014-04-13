@@ -16,12 +16,13 @@
 #include <time.h>
 #include <stdlib.h>
 #include <math.h>
+#include <vector>
 #include <iostream>
 #include "icirc.h"
 #include "n_body_lc.h"
 
 #define PMAX	20 // Maximum number of bodies, for memory use.
-#define ZPERS	1  // Observer perspective along z direction (-1 @ -z, 1 @ z)
+#define ZPERS	-1  // Observer perspective along z direction (-1 @ -z, 1 @ z)
 
 double mttr_flux_general(circle *circles,int ncircle,double c0,double c1,double c2); //A. Pal's code
 
@@ -70,7 +71,7 @@ int uniq(int pairs[][2],int count, int uniq[]) {
 }
 
 
-double occultn(double ** pos, double * radii, double * u1, double * u2, double * fluxes,int N) {
+double occultn(double ** pos, double * radii, double * u1, double * u2, double * fluxes, int N) {
     
     int i,j;
     double tr = 0,rad,x0,y0,zij,rij;
@@ -95,14 +96,14 @@ double occultn(double ** pos, double * radii, double * u1, double * u2, double *
     
     int un[count*2];
     int cn = uniq(pairs,count,un); // Find unique pairs.
-    
+
     circle circles[cn];
     
     int sorted[cn];
     for (i = 0; i < cn; i++)
         sorted[i] = un[i];
     
-//    comb_sort(pos,sorted,cn); // Sort by z coordinate
+    comb_sort(pos,sorted,cn); // Sort by z coordinate
     
     for (i = 0; i < cn; i++) { // record circles in list
         circles[i].x0 = pos[sorted[i]][0];
@@ -111,25 +112,123 @@ double occultn(double ** pos, double * radii, double * u1, double * u2, double *
     }
     
     double mtt;
-    for (i = 0; i< cn-1; i++) {
-        if (fluxes[sorted[i]] != 0) { // compute overlap if occulted body has non-zero flux
+    for (i = 0; i < cn-1; i++) {
+        if (fluxes[sorted[i]] != 0)
+        { // compute overlap if occulted body has non-zero flux
             rad = (circles+i)[0].r;
             x0 = (circles+i)[0].x0;
             y0 = (circles+i)[0].y0;
-            for (j = 0; j < cn-i; j++) { //compute hierarchy of overlaps.
-                
+            
+            for (j = 0; j < cn-i; j++)
+            { //compute hierarchy of overlaps.
                 (circles+i+j)[0].x0 = ((circles+i+j)[0].x0-x0)/rad;
                 (circles+i+j)[0].y0 = ((circles+i+j)[0].y0-y0)/rad;
                 (circles+i+j)[0].r /= rad;
-                
             }
-            mtt = (1-mttr_flux_general((circles+i),cn-i,
+            
+            mtt = (1-mttr_flux_general(&circles[i],cn-i,
                                        1-u1[sorted[i]]-2*u2[sorted[i]],
-                                       u1[sorted[i]]+2*u2[sorted[i]],u2[sorted[i]]))*fluxes[sorted[i]];
+                                       u1[sorted[i]] + 2 * u2[sorted[i]], u2[sorted[i]])) * fluxes[sorted[i]];
             
             tr += mtt;
         }
     }
     
     return 1-tr;
+}
+
+
+// IGNORE: doing sanity checks by rebuilding parts of Carter's original code
+double occultnOld(double ** pos, double * radii, double * u1, double * u2, double * fluxes, int N)
+{
+    circle circles[N];
+    double tr, mtt, mttf;
+    int count = 0;
+    int pairs[PMAX];
+    
+    // Check for eclipses
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < i; j++)
+        {
+            // Check for which is in front
+            int fb, bb;
+            double d, r;
+            
+            // if (pos[i][2] < pos[j][2])
+            // {
+            //     fb = i;
+            //     bb = j;
+            // }
+            // else
+            // {
+            //     fb = j;
+            //     bb = i;
+            // }
+            
+            // Check if overlap occurs
+            d = ((pos[i][0] - pos[j][0]) * (pos[i][0] - pos[j][0]) +
+                 (pos[i][1] - pos[j][1]) * (pos[i][1] - pos[j][1]));
+            
+            r = (radii[i] + radii[j]);
+            
+            if (d < r * r)
+            {
+                bool cont_i, cont_j; 
+
+                for (int l = 0; l < count; l++)
+                {
+                    if (pairs[l] == i) cont_i = true;
+                    if (pairs[l] == j) cont_j = true;
+                }
+
+                if (!cont_i) pairs[count++] = i;
+                if (!cont_j) pairs[count++] = j;
+                // cout << "body " << fb << " has overlapped body " << bb << endl;
+            }
+        }
+    }
+    
+    // If there are no overlapping bodies, return
+    if (count == 0) return 1;
+
+    cout << "There are " << count << " unique overlaps." << endl;
+
+    // Create the circles
+    for (int i = 0; i < count; i++)
+    {
+        circles[i].x0 = pos[pairs[i]][0];
+        circles[i].y0 = pos[pairs[i]][1];
+        circles[i].r = radii[pairs[i]];
+    }
+    
+    double x0, y0, rad;
+
+    for (int i = 0; i < count; i++)
+    {   
+        // rad = (&circles[i])[0].r;
+        // x0 = (&circles[i])[0].x0;
+        // y0 = (&circles[i])[0].y0;
+            
+        // for (int j = 0; j < i; j++)
+        // {
+        //     (&circles[i+j])[0].x0 = ((&circles[i+j])[0].x0 - x0) / rad;
+        //     (&circles[i+j])[0].y0 = ((&circles[i+j])[0].y0 - y0) / rad;
+        //     (&circles[i+j])[0].r /= rad;
+        // }
+
+        double l, m, n;
+        l = 1 - u1[i] - 2 * u2[i];
+        m = 0.0; //u1[i] + 2 * u2[i];
+        n = 0.0; //u2[i];
+
+        // cout << l << " " << m << " " << n << endl;
+
+        mttf = mttr_flux_general(&circles[i], count, l, m, n);
+        mtt = (1 - mttf) * fluxes[i];
+        tr += mtt;
+    }
+    
+    if (isnan(tr)) return 1;
+    else return 1-tr;
 }
