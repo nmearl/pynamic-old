@@ -19,30 +19,31 @@ N = None
 t0 = None
 maxh = None
 orbit_error = None
-ncores = 1
+max_lnlike = -np.inf
 
 
 def per_iteration(params, lnl, model):
-    redchisqr = np.sum(((y - model) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6))
-    utilfuncs.iterprint(N, params, lnl, redchisqr, 0.0, 0.0)
-    utilfuncs.report_as_input(N, t0, maxh, orbit_error,  utilfuncs.split_parameters(params, N), 'multinest')
+    if lnl > max_lnlike:
+        global max_lnlike
+        max_lnlike = lnl
+        redchisqr = np.sum(((y - model) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6))
+        utilfuncs.iterprint(N, params, lnl, redchisqr, 0.0, 0.0)
+        utilfuncs.report_as_input(N, t0, maxh, orbit_error,  utilfuncs.split_parameters(params, N), 'multinest')
 
 
 def lnprior(cube, ndim, nparams):
     theta = np.array([cube[i] for i in range(ndim)])
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(theta, N)
 
-    masses[(masses <= 0.0) | (masses > 0.1)] = -np.inf
-    radii[(radii <= 0.0) | (radii > 1.0)] = -np.inf
-    fluxes[(fluxes > 1.0) | (fluxes < 0.0)] = -np.inf
-    u1[(u1 > 1.0) | (u1 < 0.0)] = -np.inf
-    u2[(u2 > 1.0) | (u2 < 0.0)] = -np.inf
-    a[(a < 0.0) | (a > 100.0)] = -np.inf
-    e[(e > 1.0) | (e < 0.0)] = -np.inf
-    inc[(inc > 2.0 * np.pi) | (inc < 0.0)] = -np.inf
-    om[(om > (2.0 * np.pi)) | (om < -(2.0 * np.pi))] = -np.inf
-    ln[(ln > (2.0 * np.pi)) | (ln < -(2.0 * np.pi))] = -np.inf
-    ma[(ma > (2.0 * np.pi)) | (ma < 0.0)] = -np.inf
+    masses = 10**(masses*8 - 9)
+    radii = 10**(radii*4 - 4)
+    fluxes = 10**(fluxes*4 - 4)
+    a = 10**(a*2 - 2)
+    e = 10**(e*3 - 3)
+    inc *= 2.0 * np.pi
+    om = 2.0 * np.pi * 10**(om*2 - 2)
+    ln = 2.0 * np.pi * 10**(ln*8 - 8)
+    ma = 2.0 * np.pi * 10**(ma*2 - 2)
 
     theta = np.concatenate([masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma])
 
@@ -108,6 +109,7 @@ def generate(params, lx, ly, lyerr, rv_data, lncores, fname):
     # run MultiNest
     pymultinest.run(lnlike, lnprior, n_params, outputfiles_basename='./output/{0}/reports/'.format(fname),
                     resume=True, verbose=True)
+    utilfuncs.report_as_input(N, t0, maxh, orbit_error,  utilfuncs.split_parameters(params, N), 'multinest')
 
     # run has completed
     # progress_plot.stop()
