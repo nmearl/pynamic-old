@@ -1,3 +1,5 @@
+from __future__ import absolute_import, unicode_literals, print_function
+
 __author__ = 'nmearl'
 
 import json
@@ -98,21 +100,24 @@ def generate(params, lx, ly, lyerr, rv_data, lncores, fname):
         os.mkdir("./output/{0}/plots".format(fname))
 
     # we want to see some output while it is running
-    progress = pymultinest.ProgressPlotter(n_params = n_params)
-    progress.start()
+    # progress_plot = pymultinest.ProgressPlotter(n_params=n_params, outputfiles_basename='./output/{0}/reports/'.format(fname))
+    # progress_plot.start()
+    # progress_print = pymultinest.ProgressPrinter(n_params=n_params, outputfiles_basename='./output/{0}/reports/'.format(fname))
+    # progress_print.start()
 
     # run MultiNest
-    pymultinest.run(lnlike, lnprior, n_params, outputfiles_basename='./output/{0}/'.format(fname),
-                    resume=False, verbose=True)
+    pymultinest.run(lnlike, lnprior, n_params, outputfiles_basename='./output/{0}/reports/'.format(fname),
+                    resume=True, verbose=True)
 
     # run has completed
-    progress.stop()
+    # progress_plot.stop()
+    # progress_print.stop()
     json.dump(parameters, open('./output/{0}/params.json'.format(fname), 'w'))  # save parameter names
 
     # plot the distribution of a posteriori possible models
     plt.figure()
     plt.plot(x, y, '+ ', color='red', label='data')
-    a = pymultinest.Analyzer(outputfiles_basename="./output/{0}/reports".format(fname), n_params=n_params)
+    a = pymultinest.Analyzer(outputfiles_basename="./output/{0}/reports/".format(fname), n_params=n_params)
 
     for theta in a.get_equal_weighted_posterior()[::100, :-1]:
         masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(theta, N)
