@@ -177,7 +177,7 @@ def main(data_file, rv_file, fit_method, input_file, nwalkers, niterations, ncor
             fname
         )
     elif fit_method == 'multinest':
-        multinest.generate(params, x, y, yerr, rv_data, ncores)
+        multinest.generate(params, x, y, yerr, rv_data, ncores, fname)
 
     else:
         minimizer.generate(

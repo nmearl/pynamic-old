@@ -2,6 +2,7 @@ __author__ = 'nmearl'
 
 import json
 import sys
+import os
 import numpy as np
 import scipy.stats, scipy
 import pymultinest
@@ -73,29 +74,46 @@ def lnlike(cube, ndim, nparams):
     return lnl
 
 
-def generate(params, lx, ly, lyerr, lncores=1):
+def generate(params, lx, ly, lyerr, rv_data, lncores, fname):
     lN, lt0, lmaxh, lorbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
 
     global x, y, yerr, N, t0, maxh, orbit_error, ncores
     x, y, yerr, N, t0, maxh, orbit_error, ncores = lx, ly, lyerr, lN, lt0, lmaxh, lorbit_error, lncores
 
-    # analyse the file given as first argument
-    datafile = "test"
-
-    # analyse with 1 gaussian
-
     # number of dimensions our problem has
     parameters = ["{0}".format(i) for i in range(N*5 + (N-1)*6)]
     n_params = len(parameters)
 
+    # make sure the output directories exist
+    if not os.path.exists("./output"):
+        os.mkdir("./output")
+
+    if not os.path.exists("./output/{0}".format(fname)):
+        os.mkdir("./output/{0}".format(fname))
+
+    if not os.path.exists("./output/{0}/reports".format(fname)):
+        os.mkdir("./output/{0}/reports".format(fname))
+
+    if not os.path.exists("./output/{0}/plots".format(fname)):
+        os.mkdir("./output/{0}/plots".format(fname))
+
+    # we want to see some output while it is running
+    progress = pymultinest.ProgressPlotter(n_params = n_params)
+    progress.start()
+
     # run MultiNest
-    pymultinest.run(lnlike, lnprior, n_params, outputfiles_basename=datafile + '_1_', resume=False, verbose=True)
-    json.dump(parameters, open(datafile + '_1_params.json', 'w'))  # save parameter names
+    pymultinest.run(lnlike, lnprior, n_params, outputfiles_basename='./output/{0}/'.format(fname),
+                    resume=False, verbose=True)
+
+    # run has completed
+    progress.stop()
+    json.dump(parameters, open('./output/{0}/params.json'.format(fname), 'w'))  # save parameter names
 
     # plot the distribution of a posteriori possible models
     plt.figure()
     plt.plot(x, y, '+ ', color='red', label='data')
-    a = pymultinest.Analyzer(outputfiles_basename=datafile + '_1_', n_params=n_params)
+    a = pymultinest.Analyzer(outputfiles_basename="./output/{0}/reports".format(fname), n_params=n_params)
+
     for theta in a.get_equal_weighted_posterior()[::100, :-1]:
         masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(theta, N)
         plt.plot(
@@ -104,7 +122,5 @@ def generate(params, lx, ly, lyerr, lncores=1):
             '-', color='blue', alpha=0.3, label='data'
         )
 
-    plt.savefig(datafile + '_1_posterior.pdf')
+    plt.savefig('./output/{0}/plots/posterior.pdf'.format(fname))
     plt.close()
-
-    a_lnZ = a.get_stats()['global evidence']
