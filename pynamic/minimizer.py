@@ -11,60 +11,29 @@ twopi = 2.0 * np.pi
 def per_iteration(params, i, resids, x, y, yerr, rv_data, *args, **kws):
     if i%10 == 0.0:
         ncores, fname = args
-        N, t0, maxh, orbit_error = params['N'].value, params['t0'].value, \
-                                   params['maxh'].value, params['orbit_error'].value
-        split_params = _get_parameters(params)
-        redchisqr = utilfuncs.reduced_chisqr(np.concatenate(split_params), x, y, yerr, N, t0, maxh, orbit_error)
-        utilfuncs.iterprint(N, np.concatenate(split_params), 0.0, redchisqr, 0.0, 0.0)
-        utilfuncs.report_as_input(N, t0, maxh, orbit_error, split_params, fname)
 
+        params = utilfuncs.get_lmfit_parameters(params)
 
-def _get_parameters(params, full=False):
-    masses = np.array([params['mass_{0}'.format(i)].value for i in range(params['N'].value)])
-    radii = np.array([params['radius_{0}'.format(i)].value for i in range(params['N'].value)])
-    fluxes = np.array([params['flux_{0}'.format(i)].value for i in range(params['N'].value)])
-    u1 = np.array([params['u1_{0}'.format(i)].value for i in range(params['N'].value)])
-    u2 = np.array([params['u2_{0}'.format(i)].value for i in range(params['N'].value)])
-
-    a = np.array([params['a_{0}'.format(i)].value for i in range(1, params['N'].value)])
-    e = np.array([params['e_{0}'.format(i)].value for i in range(1, params['N'].value)])
-    inc = np.array([params['inc_{0}'.format(i)].value for i in range(1, params['N'].value)])
-    om = np.array([params['om_{0}'.format(i)].value for i in range(1, params['N'].value)])
-    ln = np.array([params['ln_{0}'.format(i)].value for i in range(1, params['N'].value)])
-    ma = np.array([params['ma_{0}'.format(i)].value for i in range(1, params['N'].value)])
-
-    if not full:
-        return masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
-    else:
-        return params['N'].value, params['t0'].value, params['maxh'].value, params['orbit_error'].value, \
-               masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
-
-
-def fitfunc(params, x, ncores):
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = _get_parameters(params)
-
-    mod_fluxes, mod_rv = photometry.multigenerate(ncores,
-        params['N'].value, params['t0'].value,
-        params['maxh'].value, params['orbit_error'].value,
-        x,
-        masses, radii, fluxes, u1, u2,
-        a, e, inc, om, ln, ma
-    )
-
-    return mod_fluxes, mod_rv
+        redchisqr = utilfuncs.reduced_chisqr(params, x, y, yerr)
+        utilfuncs.iterprint(params, 0.0, redchisqr, 0.0, 0.0)
+        utilfuncs.report_as_input(params, fname)
 
 
 def residual(params, x, y, yerr, rv_data, ncores, *args):
-    mod_flux, mod_rv = fitfunc(params, x, ncores)
+    params = utilfuncs.get_lmfit_parameters(params)
+    mod_flux, _ = utilfuncs.model(params, x)
+    _, mod_rv = utilfuncs.model(params, rv_data[0])
+
     weighted = (mod_flux - y) / yerr
-    # if rv_data:
-    #     weighted += (model_rv - utilfuncs.find_nearest(x, rv_data[0]))
-    # per_iteration(params, y, yerr, model, chi2)
+
+    if rv_data is not None:
+        return weighted + (mod_rv - rv_data[1]) / rv_data[2]
+
     return weighted
 
 
-def generate(in_params, x, y, yerr, rv_data, fit_method, ncores, fname):
-    N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = in_params
+def generate(params, x, y, yerr, rv_data, fit_method, ncores, fname):
+    N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
 
     params = Parameters()
     params.add('N', value=N, vary=False)
@@ -93,12 +62,13 @@ def generate(in_params, x, y, yerr, rv_data, fit_method, ncores, fname):
             params.add('ma_{0}'.format(i), value=ma[i - 1], min=0.0, max=twopi)
 
     print('Generating maximum likelihood values...')
-    results = minimize(residual, params, args=(x, y, yerr, rv_data, ncores, fname), iter_cb=per_iteration, method=fit_method)
+    results = minimize(residual, params, args=(x, y, yerr, rv_data, ncores, fname),
+                       iter_cb=per_iteration, method=fit_method)
 
     # Save the final outputs
     print "Writing report..."
-    # report_fit(params)
-    utilfuncs.report_as_input(N, t0, maxh, orbit_error, _get_parameters(results.params), fname)
+    report_fit(results.params)
+    utilfuncs.report_as_input(utilfuncs.get_lmfit_parameters(params), fname)
 
     # Return best fit values
-    return _get_parameters(results.params, full=True)
+    return utilfuncs.get_lmfit_parameters(results.params)

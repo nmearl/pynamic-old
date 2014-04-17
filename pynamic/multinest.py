@@ -57,22 +57,18 @@ def lnlike(cube, ndim, nparams):
     if len(theta[~np.isfinite(theta)]) > 0:
         return -np.inf
 
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(theta, N)
+    sys = np.array([N, t0, maxh, orbit_error])
+    params = utilfuncs.split_parameters(np.append(sys, theta))
 
-    model = photometry.multigenerate(ncores,
-        N, t0, maxh, orbit_error,
-        x,
-        masses, radii, fluxes, u1, u2,
-        a, e, inc, om, ln, ma
-    )
+    mod_flux, mod_rv = utilfuncs.model(params, x)
 
     # lnf = np.log(1.0e-10)  # Natural log of the underestimation fraction
     # inv_sigma2 = 1.0 / (yerr ** 2 + model ** 2 * np.exp(2 * lnf))
     # lnl = -0.5 * (np.sum((y - model) ** 2 * inv_sigma2 - np.log(inv_sigma2)))
 
-    lnl = (-0.5 * ((model - y) / yerr)**2).sum()
+    lnl = (-0.5 * ((mod_flux - y) / yerr)**2).sum()
 
-    per_iteration(theta, lnl, model)
+    per_iteration(theta, lnl, mod_flux)
 
     return lnl
 
@@ -109,7 +105,6 @@ def generate(params, lx, ly, lyerr, rv_data, lncores, fname):
     # run MultiNest
     pymultinest.run(lnlike, lnprior, n_params, outputfiles_basename='./output/{0}/reports/'.format(fname),
                     resume=True, verbose=True)
-    utilfuncs.report_as_input(N, t0, maxh, orbit_error,  utilfuncs.split_parameters(params, N), 'multinest')
 
     # run has completed
     # progress_plot.stop()
@@ -122,12 +117,14 @@ def generate(params, lx, ly, lyerr, rv_data, lncores, fname):
     a = pymultinest.Analyzer(outputfiles_basename="./output/{0}/reports/".format(fname), n_params=n_params)
 
     for theta in a.get_equal_weighted_posterior()[::100, :-1]:
-        masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(theta, N)
-        plt.plot(
-            x,
-            photometry.generate(N, t0, maxh, orbit_error, x, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma),
-            '-', color='blue', alpha=0.3, label='data'
-        )
+        sys = np.array([N, t0, maxh, orbit_error])
+        params = utilfuncs.split_parameters(np.append(sys, theta))
+
+        mod_flux, mod_rv = utilfuncs.model(params, x)
+
+        plt.plot(x, mod_flux, '-', color='blue', alpha=0.3, label='data')
+
+    utilfuncs.report_as_input(params, 'multinest')
 
     plt.savefig('./output/{0}/plots/posterior.pdf'.format(fname))
     plt.close()

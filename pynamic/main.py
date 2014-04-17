@@ -84,7 +84,7 @@ def plot_model(params, x, y, yerr, rv_data):
     """
     N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
 
-    model_flux, model_rv = photometry.multigenerate(2,
+    mod_flux, mod_rv = photometry.multigenerate(2,
         N, t0,
         maxh, orbit_error,
         x,
@@ -92,15 +92,16 @@ def plot_model(params, x, y, yerr, rv_data):
         a, e, inc, om, ln, ma
     )
 
-    print("Reduced chi-square:", np.sum(((y - model_flux) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6)))
-    inv_sigma2 = 1.0 / (yerr ** 2 + model_flux ** 2 * np.exp(2.0 * np.log(1.0e-10)))
-    print("Custom optimized value:", -0.5 * (np.sum((y - model_flux) ** 2 * inv_sigma2 - np.log(inv_sigma2))))
+    print("Reduced chi-square:", np.sum(((y - mod_flux) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6)))
+    inv_sigma2 = 1.0 / (yerr ** 2 + mod_flux ** 2 * np.exp(2.0 * np.log(1.0e-10)))
+    print("Custom optimized value:", -0.5 * (np.sum((y - mod_flux) ** 2 * inv_sigma2 - np.log(inv_sigma2))))
 
     pylab.plot(x, y, 'k+')
-    pylab.plot(x, model_flux, 'r+')
-    # pylab.xlim(170,171)
-    # pylab.ylim(0.97, 1.005)
+    pylab.plot(x, mod_flux, 'r')
+    pylab.show()
 
+    pylab.plot(x, y, 'k+')
+    pylab.plot(x, mod_rv, 'r')
     pylab.show()
 
 
@@ -140,7 +141,7 @@ def main(data_file, rv_file, fit_method, input_file, nwalkers, niterations, ncor
     rv_data = None
 
     if rv_file:
-        rv_data = np.loadtxt(rv_file, unpack=True)
+        rv_data = np.loadtxt(rv_file, unpack=True, usecols=(0,1,2))
 
     time_start = time.time()
 
@@ -157,8 +158,7 @@ def main(data_file, rv_file, fit_method, input_file, nwalkers, niterations, ncor
     if fit_method == 'mcmc':
         hammer.generate(
             params, x[:n], y[:n], yerr[:n], rv_data,
-            nwalkers, niterations, ncores, randpars,
-            fname
+            nwalkers, niterations, ncores, randpars, fname
         )
 
     elif fit_method == 'plot':
@@ -166,23 +166,22 @@ def main(data_file, rv_file, fit_method, input_file, nwalkers, niterations, ncor
 
     elif fit_method == 'cluster':
         params = minimizer.generate(
-            params, x[:n], y[:n], yerr[:n],
-            rv_data, 'leastsq',
-            ncores, fname
+            params, x[:n], y[:n], yerr[:n], rv_data,
+            'leastsq', ncores, fname
         )
 
         hammer.generate(
             params, x[:n], y[:n], yerr[:n], rv_data,
-            nwalkers, niterations, ncores, randpars,
-            fname
+            nwalkers, niterations, ncores, randpars, fname
         )
     elif fit_method == 'multinest':
-        multinest.generate(params, x, y, yerr, rv_data, ncores, fname)
+        multinest.generate(params, x, y, yerr, rv_data,
+                           ncores, fname)
 
     else:
         minimizer.generate(
-            params, x[:n], y[:n], yerr[:n], rv_data, fit_method,
-            ncores, fname
+            params, x[:n], y[:n], yerr[:n], rv_data,
+            fit_method, ncores, fname
         )
 
     print "Total time:", time.time() - time_start

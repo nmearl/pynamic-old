@@ -10,8 +10,9 @@ import minimizer
 
 
 # Define the probability function as likelihood * prior.
-def lnprior(theta, N):
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(theta, N)
+def lnprior(params):
+    N, t0, maxh, orbit_error, \
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
 
     if len(masses[(masses <= 0.0) | (masses > 0.1)]) == 0 \
         and len(radii[(radii <= 0.0) | (radii > 1.0)]) == 0 \
@@ -30,34 +31,40 @@ def lnprior(theta, N):
     return -np.inf
 
 
-def lnlike(theta, x, y, yerr, N, t0, maxh, orbit_error):
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(theta, N)
-
-    model = photometry.generate(
-        N, t0, maxh, orbit_error,
-        x,
-        masses, radii, fluxes, u1, u2,
-        a, e, inc, om, ln, ma
-    )
+def lnlike(params, x, y, yerr, rv_data):
+    mod_flux, _ = utilfuncs.model(params, x)
+    _, mod_rv = utilfuncs.model(params, rv_data[0])
 
     # lnf = np.log(1.0e-10)  # Natural log of the underestimation fraction
     # inv_sigma2 = 1.0 / (yerr ** 2 + model ** 2 * np.exp(2 * lnf))
     # return -0.5 * (np.sum((y - model) ** 2 * inv_sigma2 - np.log(inv_sigma2)))
-    return (-0.5 * ((model - y) / yerr)**2).sum()
+
+    lnl = (-0.5 * ((mod_flux - y) / yerr)**2).sum()
+
+    if rv_data is not None:
+        return lnl + (-0.5 * ((mod_rv - rv_data[1]) / rv_data[2])**2).sum()
+
+    return lnl
 
 
-def lnprob(theta, x, y, yerr, N, t0, maxh, orbit_error):
-    lp = lnprior(theta, N)
+def lnprob(theta, sys, x, y, yerr, rv_data):
+    params = utilfuncs.split_parameters(np.append(sys, theta))
+    lp = lnprior(params)
+
     if not np.isfinite(lp):
         return -np.inf
-    return lp + lnlike(theta, x, y, yerr, N, t0, maxh, orbit_error)
+
+    return lp + lnlike(params, x, y, yerr, rv_data)
 
 
 def generate(params, x, y, yerr, rv_data, nwalkers, niterations, ncores, randpars, fname):
-    #np.seterr(all='raise')
+    # np.seterr(all='raise')
 
     N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
     theta = np.concatenate([masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma])
+
+    sys = np.array([N, t0, maxh, orbit_error])
+
     yerr = np.array(yerr)
 
     # Set up the sampler.
@@ -72,7 +79,7 @@ def generate(params, x, y, yerr, rv_data, nwalkers, niterations, ncores, randpar
         theta[theta == 0.0] = 1.0e-10
         pos0 = [theta + theta * 1.0e-3 * np.random.randn(ndim) for i in range(nwalkers)]
 
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(x, y, yerr, N, t0, maxh, orbit_error), threads=ncores)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(sys, x, y, yerr, rv_data), threads=ncores)
 
     # Clear and run the production chain.
     print("Running MCMC...")
@@ -100,17 +107,18 @@ def generate(params, x, y, yerr, rv_data, nwalkers, niterations, ncores, randpar
         maxlnprob = np.argmax(lnp)
         bestpos = pos[maxlnprob, :]
 
-        redchisqr = utilfuncs.reduced_chisqr(bestpos, x, y, yerr, N, t0, maxh, orbit_error)
+        params = utilfuncs.split_parameters(np.append(sys, bestpos))
 
-        utilfuncs.iterprint(N, bestpos, lnp[maxlnprob], redchisqr, citer / niterations, tleft)
-        utilfuncs.report_as_input(N, t0, maxh, orbit_error, utilfuncs.split_parameters(bestpos, N), fname)
+        redchisqr = utilfuncs.reduced_chisqr(params, x, y, yerr)
+
+        utilfuncs.iterprint(params, lnp[maxlnprob], redchisqr, citer / niterations, tleft)
+        utilfuncs.report_as_input(params, fname)
 
     # Remove 'burn in' region
     print('Burning in; creating sampler chain...')
 
-    burnin = int(.25 * niterations)
+    burnin = int(0.5 * niterations)
     samples = sampler.chain[:, burnin:, :].reshape((-1, ndim))
-
     # Compute the quantiles.
     print('Computing quantiles; mapping results...')
 
@@ -123,5 +131,5 @@ def generate(params, x, y, yerr, rv_data, nwalkers, niterations, ncores, randpar
     # Produce final model and save the values
     print('Saving final results...')
 
-    utilfuncs.report_out(N, t0, maxh, orbit_error, results, fname)
-    utilfuncs.plot_out(theta, fname, sampler, samples, ndim)
+    utilfuncs.mcmc_report_out(sys, results, fname)
+    utilfuncs.plot_out(params, fname, sampler, samples, ndim)

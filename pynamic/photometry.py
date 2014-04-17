@@ -19,12 +19,11 @@ start = lib.start
 
 start.argtypes = [
     ndpointer(ctypes.c_double),
-    ndpointer(ctypes.c_double),
+    ctypes.c_int,
     ctypes.c_int,
     ctypes.c_double,
     ctypes.c_double,
     ctypes.c_double,
-    ctypes.c_int,
     ndpointer(ctypes.c_double),
     ndpointer(ctypes.c_double),
     ndpointer(ctypes.c_double),
@@ -36,45 +35,53 @@ start.argtypes = [
     ndpointer(ctypes.c_double),
     ndpointer(ctypes.c_double),
     ndpointer(ctypes.c_double),
-    ndpointer(ctypes.c_double)
+    ndpointer(ctypes.c_double),
+    ndpointer(ctypes.c_double),
 ]
 
 
 def run(inputs):
-    sub_fluxes, sub_rv, N, t0, maxh, orbit_error, in_times_size, in_times, \
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = inputs
+    time, time_size, \
+    N, t0, maxh, orbit_error, \
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma, \
+    sub_flux, sub_rv = inputs
 
     start(
-        sub_fluxes, sub_rv,
+        time, time_size,
         N, t0, maxh, orbit_error,
-        in_times_size, in_times,
-        masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
+        masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma,
+        sub_flux, sub_rv,
     )
 
-    return sub_fluxes, sub_rv
+    return sub_flux, sub_rv
 
 
-def multigenerate(ncores, N, t0, maxh, orbit_error, in_times, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma):
-    chunk = int(len(in_times) / ncores)
+def generate(time, params, ncores=1):
+    N, t0, maxh, orbit_error, \
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
+
+    time_chunks = np.array_split(time, ncores)
 
     inputs = [
         [
-            np.zeros(len(in_times[i:i + chunk])),
-            np.zeros(len(in_times[i:i + chunk])),
+            chunk, len(chunk),
             N, t0, maxh, orbit_error,
-            len(in_times[i:i + chunk]), np.array(in_times[i:i + chunk]),
-            masses, radii, fluxes, u1, u2,
-            a, e, inc, om, ln, ma
+            masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma,
+            np.zeros(len(chunk)),
+            np.zeros(len(chunk)),
         ]
-        for i in range(0, len(in_times), chunk)
+        for chunk in time_chunks
     ]
 
-    p = Pool(ncores)
+    if ncores > 1:
+        p = Pool(ncores)
 
-    result = p.map(run, inputs)
+        result = p.map(run, inputs)
 
-    p.close()
-    p.join()
+        p.close()
+        p.join()
+    else:
+        result = map(run, inputs)
 
     # fluxes = np.array([])
     # for sub_fluxes in result:
@@ -82,28 +89,22 @@ def multigenerate(ncores, N, t0, maxh, orbit_error, in_times, masses, radii, flu
 
     result = np.array(result)
 
-    # tot_rv = np.concatenate(result[:, 1]) * 1731 - 27.278 - 0.26
-    # pylab.plot(in_times, tot_rv)
-    #
-    # time, data, err = np.loadtxt('data/005897_rv.dat', unpack=True)
-    #
-    # pylab.plot(time[np.argsort(time)], data[np.argsort(time)], 'o')
-    # pylab.show()
-
     return np.concatenate(result[:, 0]), np.concatenate(result[:, 1]) * 1731 - 27.278 - 0.26
 
 
-def generate(N, t0, maxh, orbit_error, in_times, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma):
-
-    tot_flux = np.zeros(len(in_times))
-    tot_rv = np.zeros(len(in_times))
-
-    start(
-        tot_flux, tot_rv,
-        N, t0, maxh, orbit_error,
-        len(in_times), in_times,
-        masses, radii, fluxes, u1, u2,
-        a, e, inc, om, ln, ma
-    )
-
-    return tot_flux, tot_rv * 1731 - 27.278 - 0.26
+# def generate(time, params):
+#     N, t0, maxh, orbit_error, \
+#     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
+#
+#     tot_flux = np.zeros(len(time))
+#     tot_rv = np.zeros(len(time))
+#
+#     start(
+#         tot_flux, tot_rv,
+#         N, t0, maxh, orbit_error,
+#         len(in_times), in_times,
+#         masses, radii, fluxes, u1, u2,
+#         a, e, inc, om, ln, ma
+#     )
+#
+#     return tot_flux, tot_rv * 1731 - 27.278 - 0.26

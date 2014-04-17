@@ -8,6 +8,37 @@ import photometry
 import time
 
 
+def model(params, x, ncores=1):
+
+    mod_flux, mod_rv = photometry.generate(
+        x, params, ncores
+    )
+
+    return mod_flux, mod_rv
+
+
+def get_lmfit_parameters(params):
+    N = params['N'].value
+    t0 = params['t0'].value
+    maxh = params['maxh'].value
+    orbit_error = params['orbit_error'].value
+
+    masses = np.array([params['mass_{0}'.format(i)].value for i in range(params['N'].value)])
+    radii = np.array([params['radius_{0}'.format(i)].value for i in range(params['N'].value)])
+    fluxes = np.array([params['flux_{0}'.format(i)].value for i in range(params['N'].value)])
+    u1 = np.array([params['u1_{0}'.format(i)].value for i in range(params['N'].value)])
+    u2 = np.array([params['u2_{0}'.format(i)].value for i in range(params['N'].value)])
+
+    a = np.array([params['a_{0}'.format(i)].value for i in range(1, params['N'].value)])
+    e = np.array([params['e_{0}'.format(i)].value for i in range(1, params['N'].value)])
+    inc = np.array([params['inc_{0}'.format(i)].value for i in range(1, params['N'].value)])
+    om = np.array([params['om_{0}'.format(i)].value for i in range(1, params['N'].value)])
+    ln = np.array([params['ln_{0}'.format(i)].value for i in range(1, params['N'].value)])
+    ma = np.array([params['ma_{0}'.format(i)].value for i in range(1, params['N'].value)])
+
+    return N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
+
+
 def random_pos(N, nwalkers):
     all_masses = 10**-np.logspace(0.0, 1.0, nwalkers)
     all_radii = 10 * 10**-np.logspace(0.4, 0.7, nwalkers)
@@ -40,40 +71,29 @@ def random_pos(N, nwalkers):
     return np.array(pos)
 
 
-def find_nearest(array, targets):
-    res = []
+def split_parameters(params):
+    N, t0, maxh, orbit_error = params[:4]
+    N = int(N)
 
-    for tar in targets:
-        idx = np.argmin(np.abs(array - tar))
-        res.append(idx)
+    body_params, kep_params = params[4:4 + (5 * N)], params[4 + (5 * N):]
 
-    return np.array(res)
+    masses, radii, fluxes, u1, u2 = [np.array(body_params[i:N + i]) for i in range(0, len(body_params), N)]
+    a, e, inc, om, ln, ma = [np.array(kep_params[i:N - 1 + i]) for i in range(0, len(kep_params), N - 1)]
 
-
-def split_parameters(theta, N):
-    sys_params, ind_params = theta[:5 * N], theta[5 * N:]
-
-    masses, radii, fluxes, u1, u2 = [np.array(sys_params[i:N + i]) for i in range(0, len(sys_params), N)]
-    a, e, inc, om, ln, ma = [np.array(ind_params[i:N - 1 + i]) for i in range(0, len(ind_params), N - 1)]
-
-    return masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
+    return N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
 
 
-def reduced_chisqr(theta, x, y, yerr, N, t0, maxh, orbit_error):
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = split_parameters(theta, N)
+def reduced_chisqr(params, x, y, yerr):
+    N = params[0]
 
-    mod_flux, mod_rv = photometry.generate(
-        N, t0, maxh, orbit_error,
-        x,
-        masses, radii, fluxes, u1, u2,
-        a, e, inc, om, ln, ma
-    )
+    mod_flux, mod_rv = model(params, x)
 
     return np.sum(((y - mod_flux) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6))
 
 
-def iterprint(N, bestpos, maxlnp, redchisqr, percomp, tleft):
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = split_parameters(bestpos, N)
+def iterprint(params, maxlnp, redchisqr, percomp, tleft):
+    N, t0, maxh, orbit_error, \
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
 
     print('=' * 80)
     print('Likelihood: {0}, Red. Chi: {1} | {2:2.1f}% complete, ~{3} left'.format(
@@ -114,7 +134,10 @@ def iterprint(N, bestpos, maxlnp, redchisqr, percomp, tleft):
     print('')
 
 
-def plot_out(theta, fname, *args):
+def plot_out(params, fname, *args):
+    N, t0, maxh, orbit_error, \
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
+
     print("Generating plots...")
 
     if not os.path.exists("./output"):
@@ -126,35 +149,39 @@ def plot_out(theta, fname, *args):
     if not os.path.exists("./output/{0}/plots".format(fname)):
         os.mkdir("./output/{0}/plots".format(fname))
 
+    names = ['mass', 'radii', 'flux', 'u1', 'u2', 'a', 'e', 'inc', 'om', 'ln', 'ma']
+
+
     if args:
         sampler, samples, ndim = args
+        results = [masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma]
 
         # Plot corner plot
         # fig = triangle.corner(samples)
         # fig.savefig("./output/{0}/plots/triangle.png".format(fname))
 
         # Plot paths of walkers
-        for i in range(len(theta)):
-            pl.clf()
-            pl.plot(sampler.chain[:, :, i].T, color="k", alpha=0.4)
-            pl.axhline(theta[i], color="r", lw=2)
-            pl.savefig('./output/{0}/plots/line_{1}.png'.format(fname, i))
-            #pl.clf()
+        for i in range(len(results)):
+            for j in range(len(results[i])):
+                pl.clf()
+                pl.plot(sampler.chain[:, :, i+j].T, color="k", alpha=0.4)
+                pl.axhline(results[i][j], color="r", lw=2)
+                pl.title("Walkers Distribution for {0:s}_{1:d}".format(names[i], j))
+                pl.savefig('./output/{0}/plots/line_{1}_{2}.png'.format(fname, names[i], j))
+                #pl.clf()
 
         # Plot value histograms
-        for i in range(ndim):
-            pl.figure()
-            pl.hist(sampler.flatchain[:, i], 100, color="k", histtype="step")
-            pl.title("Dimension {0:d}".format(i))
-            pl.savefig('./output/{0}/plots/dim_{1:d}.png'.format(fname, i))
-            pl.close()
+        for i in range(len(results)):
+            for j in range(len(results[i])):
+                pl.figure()
+                pl.hist(sampler.flatchain[:, i+j], 100, color="k", histtype="step")
+                pl.title("{0:s}_{1:d} Parameter Distribution".format(names[i], j))
+                pl.savefig('./output/{0}/plots/dim_{1:s}_{2:d}.png'.format(fname, names[i], j))
+                pl.close()
 
 
-def report_out(N, t0, maxh, orbit_error, results, fname):
-    results = np.array(results)
-    report_as_input(N, t0, maxh, orbit_error, split_parameters(results[:, 0], N), fname)
-
-    results = split_parameters(results, N)
+def mcmc_report_out(sys, results, fname):
+    N, t0, maxh, orbit_error = sys
 
     GMsun = 2.959122083E-4 # AU**3/day**2
     Rsun = 0.00465116 # AU
@@ -162,6 +189,7 @@ def report_out(N, t0, maxh, orbit_error, results, fname):
     names = ['mass', 'radii', 'flux', 'u1', 'u2', 'a', 'e', 'inc', 'om', 'ln', 'ma']
 
     print('Saving results to file...')
+    print(len(results))
 
     if not os.path.exists("./output"):
         os.mkdir("./output")
@@ -176,29 +204,37 @@ def report_out(N, t0, maxh, orbit_error, results, fname):
         for i in range(len(results)):
             param = results[i]
 
-            for j in range(len(param)):
-                print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
-                f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
+            print("{0} = {1[0]} +{1[1]} -{1[2]}".format(i, param))
+            f.write("{0} = {1[0]} +{1[1]} -{1[2]}".format(i, param))
 
-            if names[i] == 'mass':
-                param /= GMsun
+            # for j in range(len(param)):
+            #     print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
+            #     f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
+            #
+            # if names[i] == 'mass':
+            #     param /= GMsun
+            #
+            # elif names[i] == 'radii':
+            #     param /= Rsun
+            #
+            # elif any(ang in names[i] for ang in ['inc', 'om', 'ln', 'ma']):
+            #     param = np.rad2deg(param)
+            #
+            # print('')
+            #
+            # for j in range(len(param)):
+            #     print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
+            #     f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
+            #
+            # print('')
 
-            elif names[i] == 'radii':
-                param /= Rsun
 
-            elif any(ang in names[i] for ang in ['inc', 'om', 'ln', 'ma']):
-                param = np.rad2deg(param)
+def report_as_input(params, fname):
+    N, t0, maxh, orbit_error, \
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
 
-            print('')
+    results = [masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma]
 
-            for j in range(len(param)):
-                print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
-                f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
-
-            print('')
-
-
-def report_as_input(N, t0, maxh, orbit_error, results, fname):
     if not os.path.exists("./output"):
         os.mkdir("./output")
 
