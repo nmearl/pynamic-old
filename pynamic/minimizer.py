@@ -14,7 +14,7 @@ def per_iteration(params, i, resids, x, y, yerr, rv_data, *args, **kws):
 
         params = utilfuncs.get_lmfit_parameters(params)
 
-        redchisqr = utilfuncs.reduced_chisqr(params, x, y, yerr)
+        redchisqr = utilfuncs.reduced_chisqr(params, x, y, yerr, rv_data)
         utilfuncs.iterprint(params, 0.0, redchisqr, 0.0, 0.0)
         utilfuncs.report_as_input(params, fname)
 
@@ -22,14 +22,10 @@ def per_iteration(params, i, resids, x, y, yerr, rv_data, *args, **kws):
 def residual(params, x, y, yerr, rv_data, ncores, *args):
     params = utilfuncs.get_lmfit_parameters(params)
 
-    # if rv_data is not None:
-    #     mod_flux, mod_rv = utilfuncs.model(params, x, rv_data[0])
-    #     weighted = ((mod_flux - y) / yerr).sum()
-    #     return weighted + ((mod_rv - rv_data[1]) / rv_data[2]).sum()
+    mod_flux, mod_rv = utilfuncs.model(params, x, rv_data[0], ncores)
+    weighted = ((mod_flux - y) / yerr)
 
-    mod_flux, _ = utilfuncs.model(params, x)
-    weighted = (mod_flux - y) / yerr
-    return weighted
+    return np.append(weighted, ((mod_rv - rv_data[1]) / rv_data[2]))
 
 
 def generate(params, x, y, yerr, rv_data, fit_method, ncores, fname):

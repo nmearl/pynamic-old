@@ -8,19 +8,16 @@ import photometry
 import time
 
 
-def model(params, flux_x, rv_x=None, ncores=1):
-    if rv_x is not None:
-        x = np.append(flux_x, rv_x)
-        x = x[np.argsort(x)]
+def model(params, flux_x, rv_x, ncores=1):
+    x = np.append(flux_x, rv_x)
+    x = x[np.argsort(x)]
 
-        flux_inds = np.in1d(x, flux_x)
-        rv_inds = np.in1d(x, rv_x)
+    flux_inds = np.in1d(x, flux_x)
+    rv_inds = np.in1d(x, rv_x)
 
-        mod_flux, mod_rv = photometry.generate(params, x, ncores)
+    mod_flux, mod_rv = photometry.generate(params, x, ncores)
 
-        return mod_flux[flux_inds], mod_rv[rv_inds]
-
-    return photometry.generate(params, flux_x, ncores)
+    return mod_flux[flux_inds], mod_rv[rv_inds]
 
 
 def get_lmfit_parameters(params):
@@ -89,12 +86,15 @@ def split_parameters(params):
     return N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
 
 
-def reduced_chisqr(params, x, y, yerr):
+def reduced_chisqr(params, x, y, yerr, rv_data):
     N = params[0]
 
-    mod_flux, mod_rv = model(params, x)
+    mod_flux, mod_rv = model(params, x, rv_data[0])
 
-    return np.sum(((y - mod_flux) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6))
+    flnl = np.sum(((y - mod_flux) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6))
+    rvlnl = np.sum(((rv_data[1] - mod_rv) / rv_data[2]) ** 2) / (rv_data[1].size - 1 - (N * 5 + (N - 1) * 6))
+
+    return flnl + rvlnl
 
 
 def iterprint(params, maxlnp, redchisqr, percomp, tleft):

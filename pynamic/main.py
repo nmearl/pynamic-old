@@ -11,8 +11,10 @@ import hammer
 import utilfuncs
 import argparse
 import re
-import multinest
-import cProfile
+try:
+    import multinest
+except:
+    pass
 
 
 def read_data(data_file):
@@ -95,7 +97,7 @@ def plot_model(params, x, y, yerr, rv_data):
     pylab.plot(x, mod_flux, 'r')
     pylab.show()
 
-    pylab.plot(x, rv_data[0], 'k+')
+    pylab.plot(x, rv_data[1], 'k+')
     pylab.plot(x, mod_rv, 'r')
     pylab.show()
 
@@ -133,7 +135,7 @@ def main(data_file, rv_file, fit_method, input_file, nwalkers, niterations, ncor
     else:
         return
 
-    rv_data = None
+    rv_data = np.zeros((3, 0))
 
     if rv_file:
         rv_data = np.loadtxt(rv_file, unpack=True, usecols=(0, 1, 2))
@@ -160,13 +162,13 @@ def main(data_file, rv_file, fit_method, input_file, nwalkers, niterations, ncor
         plot_model(params, x[:n], y[:n], yerr[:n], rv_data)
 
     elif fit_method == 'cluster':
-        params = minimizer.generate(
+        fparams = minimizer.generate(
             params, x[:n], y[:n], yerr[:n], rv_data,
             'leastsq', ncores, fname
         )
 
         hammer.generate(
-            params, x[:n], y[:n], yerr[:n], rv_data,
+            fparams, x[:n], y[:n], yerr[:n], rv_data,
             nwalkers, niterations, ncores, randpars, fname
         )
     elif fit_method == 'multinest':

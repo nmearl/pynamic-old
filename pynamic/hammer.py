@@ -24,7 +24,7 @@ def lnprior(params):
         and len(inc[(inc > 2.0 * np.pi) | (inc < 0.0)]) == 0 \
         and len(om[(om > (2.0 * np.pi)) | (om < -(2.0 * np.pi))]) == 0 \
         and len(ln[(ln > (2.0 * np.pi)) | (ln < -(2.0 * np.pi))]) == 0 \
-        and len(ma[(ma > (2.0 * np.pi)) | (ma < 0.0)]) == 0:# \
+        and len(ma[(ma > (2.0 * np.pi)) | (ma < 0.0)]) == 0:  # \
         return 0.0
 
     return -np.inf
@@ -36,14 +36,15 @@ def lnlike(params, x, y, yerr, rv_data):
     # inv_sigma2 = 1.0 / (yerr ** 2 + model ** 2 * np.exp(2 * lnf))
     # return -0.5 * (np.sum((y - model) ** 2 * inv_sigma2 - np.log(inv_sigma2)))
 
-    if rv_data is not None:
-        mod_flux, mod_rv = utilfuncs.model(params, x, rv_data[0])
-        lnl = (-0.5 * ((mod_flux - y) / yerr)**2).sum()
-        return lnl + (-0.5 * ((mod_rv - rv_data[1]) / rv_data[2])**2).sum()
+    # if rv_data is not None:
+    mod_flux, mod_rv = utilfuncs.model(params, x, rv_data[0])
+    lnl = np.sum((-0.5 * ((mod_flux - y) / yerr)**2))
 
-    mod_flux, _ = utilfuncs.model(params, x)
-    lnl = (-0.5 * ((mod_flux - y) / yerr)**2).sum()
-    return lnl
+    return lnl + np.sum((-0.5 * ((mod_rv - rv_data[1]) / rv_data[2])**2))
+
+    # mod_flux, _ = utilfuncs.model(params, x)
+    # lnl = (-0.5 * ((mod_flux - y) / yerr)**2).sum()
+    # return lnl
 
 
 def lnprob(theta, sys, x, y, yerr, rv_data):
@@ -100,7 +101,7 @@ def generate(params, x, y, yerr, rv_data, nwalkers, niterations, ncores, randpar
 
         params = utilfuncs.split_parameters(np.append(sys, bestpos))
 
-        redchisqr = utilfuncs.reduced_chisqr(params, x, y, yerr)
+        redchisqr = utilfuncs.reduced_chisqr(params, x, y, yerr, rv_data)
 
         utilfuncs.iterprint(params, lnp[maxlnprob], redchisqr, citer / niterations, tleft)
         utilfuncs.report_as_input(params, fname)
