@@ -21,14 +21,14 @@ def per_iteration(params, i, resids, x, y, yerr, rv_data, *args, **kws):
 
 def residual(params, x, y, yerr, rv_data, ncores, *args):
     params = utilfuncs.get_lmfit_parameters(params)
+
+    # if rv_data is not None:
+    #     mod_flux, mod_rv = utilfuncs.model(params, x, rv_data[0])
+    #     weighted = ((mod_flux - y) / yerr).sum()
+    #     return weighted + ((mod_rv - rv_data[1]) / rv_data[2]).sum()
+
     mod_flux, _ = utilfuncs.model(params, x)
-    _, mod_rv = utilfuncs.model(params, rv_data[0])
-
     weighted = (mod_flux - y) / yerr
-
-    if rv_data is not None:
-        return weighted + (mod_rv - rv_data[1]) / rv_data[2]
-
     return weighted
 
 

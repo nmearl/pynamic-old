@@ -25,25 +25,24 @@ def lnprior(params):
         and len(om[(om > (2.0 * np.pi)) | (om < -(2.0 * np.pi))]) == 0 \
         and len(ln[(ln > (2.0 * np.pi)) | (ln < -(2.0 * np.pi))]) == 0 \
         and len(ma[(ma > (2.0 * np.pi)) | (ma < 0.0)]) == 0:# \
-        # and np.all(a[1:] >= a[:-1]):
         return 0.0
 
     return -np.inf
 
 
 def lnlike(params, x, y, yerr, rv_data):
-    mod_flux, _ = utilfuncs.model(params, x)
-    _, mod_rv = utilfuncs.model(params, rv_data[0])
 
     # lnf = np.log(1.0e-10)  # Natural log of the underestimation fraction
     # inv_sigma2 = 1.0 / (yerr ** 2 + model ** 2 * np.exp(2 * lnf))
     # return -0.5 * (np.sum((y - model) ** 2 * inv_sigma2 - np.log(inv_sigma2)))
 
-    lnl = (-0.5 * ((mod_flux - y) / yerr)**2).sum()
-
     if rv_data is not None:
+        mod_flux, mod_rv = utilfuncs.model(params, x, rv_data[0])
+        lnl = (-0.5 * ((mod_flux - y) / yerr)**2).sum()
         return lnl + (-0.5 * ((mod_rv - rv_data[1]) / rv_data[2])**2).sum()
 
+    mod_flux, _ = utilfuncs.model(params, x)
+    lnl = (-0.5 * ((mod_flux - y) / yerr)**2).sum()
     return lnl
 
 
@@ -63,7 +62,7 @@ def generate(params, x, y, yerr, rv_data, nwalkers, niterations, ncores, randpar
     N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
     theta = np.concatenate([masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma])
 
-    sys = np.array([N, t0, maxh, orbit_error])
+    sys = [N, t0, maxh, orbit_error]
 
     yerr = np.array(yerr)
 
@@ -83,14 +82,6 @@ def generate(params, x, y, yerr, rv_data, nwalkers, niterations, ncores, randpar
 
     # Clear and run the production chain.
     print("Running MCMC...")
-    # pos, lnp, state = sampler.run_mcmc(pos0, 10, rstate0=np.random.get_state())
-    # maxlnprob = np.argmax(lnp)
-    # bestpos = pos[maxlnprob, :]
-    #
-    # redchisqr = utilfuncs.reduced_chisqr(bestpos, x, y, yerr, N, t0, maxh, orbit_error)
-    #
-    # utilfuncs.iterprint(N, bestpos, lnp[maxlnprob], redchisqr, 0.0 / niterations, 0.0)
-    # utilfuncs.report_as_input(N, t0, maxh, orbit_error, utilfuncs.split_parameters(bestpos, N), fname)
 
     if not os.path.exists("./output"):
         os.mkdir("./output")
@@ -119,6 +110,7 @@ def generate(params, x, y, yerr, rv_data, nwalkers, niterations, ncores, randpar
 
     burnin = int(0.5 * niterations)
     samples = sampler.chain[:, burnin:, :].reshape((-1, ndim))
+
     # Compute the quantiles.
     print('Computing quantiles; mapping results...')
 

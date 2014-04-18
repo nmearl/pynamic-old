@@ -36,7 +36,7 @@ start.argtypes = [
     ndpointer(ctypes.c_double),
     ndpointer(ctypes.c_double),
     ndpointer(ctypes.c_double),
-    ndpointer(ctypes.c_double),
+    ndpointer(ctypes.c_double)
 ]
 
 
@@ -50,13 +50,13 @@ def run(inputs):
         time, time_size,
         N, t0, maxh, orbit_error,
         masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma,
-        sub_flux, sub_rv,
+        sub_flux, sub_rv
     )
 
     return sub_flux, sub_rv
 
 
-def generate(time, params, ncores=1):
+def generate(params, time, ncores=1):
     N, t0, maxh, orbit_error, \
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
 
@@ -64,13 +64,13 @@ def generate(time, params, ncores=1):
 
     inputs = [
         [
-            chunk, len(chunk),
+            time_chunks[i], len(time_chunks[i]),
             N, t0, maxh, orbit_error,
             masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma,
-            np.zeros(len(chunk)),
-            np.zeros(len(chunk)),
+            np.zeros(len(time_chunks[i])),
+            np.zeros(len(time_chunks[i]))
         ]
-        for chunk in time_chunks
+        for i in range(ncores)
     ]
 
     if ncores > 1:

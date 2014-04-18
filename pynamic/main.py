@@ -12,6 +12,7 @@ import utilfuncs
 import argparse
 import re
 import multinest
+import cProfile
 
 
 def read_data(data_file):
@@ -84,13 +85,7 @@ def plot_model(params, x, y, yerr, rv_data):
     """
     N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
 
-    mod_flux, mod_rv = photometry.multigenerate(2,
-        N, t0,
-        maxh, orbit_error,
-        x,
-        masses, radii, fluxes, u1, u2,
-        a, e, inc, om, ln, ma
-    )
+    mod_flux, mod_rv = photometry.generate(params, x, ncores)
 
     print("Reduced chi-square:", np.sum(((y - mod_flux) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6)))
     inv_sigma2 = 1.0 / (yerr ** 2 + mod_flux ** 2 * np.exp(2.0 * np.log(1.0e-10)))
@@ -100,7 +95,7 @@ def plot_model(params, x, y, yerr, rv_data):
     pylab.plot(x, mod_flux, 'r')
     pylab.show()
 
-    pylab.plot(x, y, 'k+')
+    pylab.plot(x, rv_data[0], 'k+')
     pylab.plot(x, mod_rv, 'r')
     pylab.show()
 
@@ -141,7 +136,7 @@ def main(data_file, rv_file, fit_method, input_file, nwalkers, niterations, ncor
     rv_data = None
 
     if rv_file:
-        rv_data = np.loadtxt(rv_file, unpack=True, usecols=(0,1,2))
+        rv_data = np.loadtxt(rv_file, unpack=True, usecols=(0, 1, 2))
 
     time_start = time.time()
 
@@ -216,4 +211,5 @@ if __name__ == '__main__':
     syspars = args.system
     randpars = True if not input_file else False
 
+    # cProfile.run('main(data_file, rv_file, fit_method, input_file, nwalkers, niterations, ncores, syspars, randpars)')
     main(data_file, rv_file, fit_method, input_file, nwalkers, niterations, ncores, syspars, randpars)

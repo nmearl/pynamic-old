@@ -8,13 +8,19 @@ import photometry
 import time
 
 
-def model(params, x, ncores=1):
+def model(params, flux_x, rv_x=None, ncores=1):
+    if rv_x is not None:
+        x = np.append(flux_x, rv_x)
+        x = x[np.argsort(x)]
 
-    mod_flux, mod_rv = photometry.generate(
-        x, params, ncores
-    )
+        flux_inds = np.in1d(x, flux_x)
+        rv_inds = np.in1d(x, rv_x)
 
-    return mod_flux, mod_rv
+        mod_flux, mod_rv = photometry.generate(params, x, ncores)
+
+        return mod_flux[flux_inds], mod_rv[rv_inds]
+
+    return photometry.generate(params, flux_x, ncores)
 
 
 def get_lmfit_parameters(params):
@@ -182,10 +188,17 @@ def plot_out(params, fname, *args):
 
 def mcmc_report_out(sys, results, fname):
     N, t0, maxh, orbit_error = sys
+    N = int(N)
 
     GMsun = 2.959122083E-4 # AU**3/day**2
     Rsun = 0.00465116 # AU
 
+    body_params, kep_params = results[:N*5], results[N*5:]
+
+    masses, radii, fluxes, u1, u2 = [np.array(results[i:N+i]) for i in range(0, len(body_params), N)]
+    a, e, inc, om, ln, ma = [np.array(results[i:N-1+i]) for i in range(0, len(kep_params), N-1)]
+
+    params = [masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma]
     names = ['mass', 'radii', 'flux', 'u1', 'u2', 'a', 'e', 'inc', 'om', 'ln', 'ma']
 
     print('Saving results to file...')
@@ -201,32 +214,47 @@ def mcmc_report_out(sys, results, fname):
         os.mkdir("./output/{0}/reports".format(fname))
 
     with open('./output/{0}/reports/report.out'.format(fname), 'w') as f:
-        for i in range(len(results)):
-            param = results[i]
 
-            print("{0} = {1[0]} +{1[1]} -{1[2]}".format(i, param))
-            f.write("{0} = {1[0]} +{1[1]} -{1[2]}".format(i, param))
+        print("="*50)
+        print("Carter Units")
+        print("-"*50)
 
-            # for j in range(len(param)):
-            #     print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
-            #     f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
-            #
-            # if names[i] == 'mass':
-            #     param /= GMsun
-            #
-            # elif names[i] == 'radii':
-            #     param /= Rsun
-            #
-            # elif any(ang in names[i] for ang in ['inc', 'om', 'ln', 'ma']):
-            #     param = np.rad2deg(param)
-            #
-            # print('')
-            #
-            # for j in range(len(param)):
-            #     print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
-            #     f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(names[i], j, param[j]))
-            #
-            # print('')
+        f.write("="*50)
+        f.write("Carter Units")
+        f.write("-"*50)
+
+        for i in range(len(params)):
+            param = params[i]
+            name = names[i]
+
+            for j in range(len(param)):
+                print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(name, j, param[j]))
+                f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(name, j, param[j]))
+
+        print("="*50)
+        print("Real Units")
+        print("-"*50)
+
+        f.write("="*50)
+        f.write("Real Units")
+        f.write("-"*50)
+
+        for i in range(len(params)):
+            param = params[i]
+            name = names[i]
+
+            if names[i] == 'mass':
+                param /= GMsun
+
+            elif names[i] == 'radii':
+                param /= Rsun
+
+            elif any(ang in names[i] for ang in ['inc', 'om', 'ln', 'ma']):
+                param = np.rad2deg(param)
+
+            for j in range(len(param)):
+                print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(name, j, param[j]))
+                f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(name, j, param[j]))
 
 
 def report_as_input(params, fname):

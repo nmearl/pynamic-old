@@ -19,14 +19,14 @@ extern "C"
             int N, double t0, double maxh, double orbit_error,
             double *masses, double *radii, double *fluxes, double *u1, double *u2, double *a, double *e,
             double *inc, double *om, double *ln, double *ma,
-            double *mod_flux, double *mod_rv);
+            double *mod_flux, double *mod_rv, bool rv_only);
 }
 
-void start(double *time, int time_size, 
+void start(double *time, int time_size,
             int N, double t0, double maxh, double orbit_error,
             double *masses, double *radii, double *fluxes, double *u1, double *u2, double *a, double *e,
             double *inc, double *om, double *ln, double *ma,
-            double *mod_flux, double *mod_rv)
+            double *mod_flux, double *mod_rv, bool rv_only)
 {
 
     // Instantiate state; time t0 is epoch of above coordinates
@@ -45,7 +45,14 @@ void start(double *time, int time_size,
         state(time[i], maxh, orbit_error, 1.0e-20);
 
         // Now get the flux at the new time
-        mod_flux[i] = occultn(state.getBaryLT(),radii,u1,u2,fluxes,N);
+        if (!rv_only) mod_flux[i] = occultn(state.getBaryLT(),radii,u1,u2,fluxes,N);
         mod_rv[i] = state.V_Z_LT(2);
     }
+
+    // for (int i = 0; i < rv_time_size; i++)
+    // {
+    //   state(rv_time[i], maxh, orbit_error, 1.0e-20);
+
+    //   mod_rv[i] = state.V_Z_LT(2);      
+    // }
 }

@@ -23,8 +23,8 @@ max_lnlike = -np.inf
 
 
 def per_iteration(params, lnl, model):
+    global max_lnlike
     if lnl > max_lnlike:
-        global max_lnlike
         max_lnlike = lnl
         redchisqr = np.sum(((y - model) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6))
         utilfuncs.iterprint(N, params, lnl, redchisqr, 0.0, 0.0)
