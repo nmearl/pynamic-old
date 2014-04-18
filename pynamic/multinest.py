@@ -3,10 +3,8 @@ from __future__ import absolute_import, unicode_literals, print_function
 __author__ = 'nmearl'
 
 import json
-import sys
 import os
 import numpy as np
-import scipy.stats, scipy
 import pymultinest
 import matplotlib.pyplot as plt
 import utilfuncs
@@ -15,25 +13,30 @@ import photometry
 x = None
 y = None
 yerr = None
+rv_data = None
 N = None
 t0 = None
 maxh = None
 orbit_error = None
 max_lnlike = -np.inf
+fname = ""
 
 
-def per_iteration(params, lnl, model):
+def per_iteration(theta, lnl, model):
     global max_lnlike
     if lnl > max_lnlike:
         max_lnlike = lnl
+        params = np.append(np.array([N, t0, maxh, orbit_error]), theta)
+        params = utilfuncs.split_parameters(params)
         redchisqr = np.sum(((y - model) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6))
-        utilfuncs.iterprint(N, params, lnl, redchisqr, 0.0, 0.0)
-        utilfuncs.report_as_input(N, t0, maxh, orbit_error,  utilfuncs.split_parameters(params, N), 'multinest')
+        utilfuncs.iterprint(params, lnl, redchisqr, 0.0, 0.0)
+        utilfuncs.report_as_input(params, fname)
 
 
 def lnprior(cube, ndim, nparams):
     theta = np.array([cube[i] for i in range(ndim)])
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(theta, N)
+    sys = np.array([N, t0, maxh, orbit_error])
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(np.append(sys, theta))[4:]
 
     masses = 10**(masses*8 - 9)
     radii = 10**(radii*4 - 4)
@@ -60,24 +63,27 @@ def lnlike(cube, ndim, nparams):
     sys = np.array([N, t0, maxh, orbit_error])
     params = utilfuncs.split_parameters(np.append(sys, theta))
 
-    mod_flux, mod_rv = utilfuncs.model(params, x)
+    mod_flux, mod_rv = utilfuncs.model(params, x, rv_data[0])
 
     # lnf = np.log(1.0e-10)  # Natural log of the underestimation fraction
     # inv_sigma2 = 1.0 / (yerr ** 2 + model ** 2 * np.exp(2 * lnf))
     # lnl = -0.5 * (np.sum((y - model) ** 2 * inv_sigma2 - np.log(inv_sigma2)))
 
-    lnl = (-0.5 * ((mod_flux - y) / yerr)**2).sum()
+    mod_flux, mod_rv = utilfuncs.model(params, x, rv_data[0])
+    flnl = np.sum((-0.5 * ((mod_flux - y) / yerr)**2))
+    rvlnl = np.sum((-0.5 * ((mod_rv - rv_data[1]) / rv_data[2])**2))
 
-    per_iteration(theta, lnl, mod_flux)
+    per_iteration(theta, flnl, mod_flux)
 
-    return lnl
+    return flnl + rvlnl
 
 
-def generate(params, lx, ly, lyerr, rv_data, lncores, fname):
+def generate(params, lx, ly, lyerr, lrv_data, lncores, lfname):
     lN, lt0, lmaxh, lorbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
 
-    global x, y, yerr, N, t0, maxh, orbit_error, ncores
-    x, y, yerr, N, t0, maxh, orbit_error, ncores = lx, ly, lyerr, lN, lt0, lmaxh, lorbit_error, lncores
+    global x, y, yerr, rv_data, N, t0, maxh, orbit_error, ncores, fname
+    x, y, yerr, rv_data, N, t0, maxh, orbit_error, ncores, fname \
+        = lx, ly, lyerr, lrv_data, lN, lt0, lmaxh, lorbit_error, lncores, lfname
 
     # number of dimensions our problem has
     parameters = ["{0}".format(i) for i in range(N*5 + (N-1)*6)]
@@ -124,7 +130,7 @@ def generate(params, lx, ly, lyerr, rv_data, lncores, fname):
 
         plt.plot(x, mod_flux, '-', color='blue', alpha=0.3, label='data')
 
-    utilfuncs.report_as_input(params, 'multinest')
+    utilfuncs.report_as_input(params, fname)
 
     plt.savefig('./output/{0}/plots/posterior.pdf'.format(fname))
     plt.close()

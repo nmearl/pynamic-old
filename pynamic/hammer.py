@@ -38,9 +38,10 @@ def lnlike(params, x, y, yerr, rv_data):
 
     # if rv_data is not None:
     mod_flux, mod_rv = utilfuncs.model(params, x, rv_data[0])
-    lnl = np.sum((-0.5 * ((mod_flux - y) / yerr)**2))
+    flnl = np.sum((-0.5 * ((mod_flux - y) / yerr)**2))
+    rvlnl = np.sum((-0.5 * ((mod_rv - rv_data[1]) / rv_data[2])**2))
 
-    return lnl + np.sum((-0.5 * ((mod_rv - rv_data[1]) / rv_data[2])**2))
+    return flnl + rvlnl
 
     # mod_flux, _ = utilfuncs.model(params, x)
     # lnl = (-0.5 * ((mod_flux - y) / yerr)**2).sum()

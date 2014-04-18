@@ -94,7 +94,7 @@ def reduced_chisqr(params, x, y, yerr, rv_data):
     flnl = np.sum(((y - mod_flux) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6))
     rvlnl = np.sum(((rv_data[1] - mod_rv) / rv_data[2]) ** 2) / (rv_data[1].size - 1 - (N * 5 + (N - 1) * 6))
 
-    return flnl + rvlnl
+    return flnl #+ rvlnl
 
 
 def iterprint(params, maxlnp, redchisqr, percomp, tleft):
