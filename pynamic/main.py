@@ -30,7 +30,7 @@ def read_input(input_file):
 
     photo_data_file = temp_dict['photo_data_file']
     rv_data_file = temp_dict['rv_data_file']
-    rv_body = int(temp_dict['rv_body']) if temp_dict['rv_body'] else 0
+    rv_body = int(temp_dict['rv_body']) if temp_dict['rv_body'] and temp_dict['rv_body'] > 0 else 1
     rv_corr = None  # float(temp_dict['rv_corr'])
     nwalkers = int(temp_dict['nwalkers'])
     out_prefix = temp_dict['out_prefix']
@@ -61,15 +61,16 @@ def read_input(input_file):
 
 
 def plot_model(mod_pars, body_pars, photo_data, rv_data):
+    print("Here")
     mod_flux, mod_rv = utilfuncs.model(mod_pars, body_pars, photo_data[0], photo_data[0])
-
-    print("Reduced chi-square:",
-          np.sum(((photo_data[1] - mod_flux) / photo_data[2]) ** 2) /
-          (photo_data[2].size - 1 - (mod_pars[0] * 5 + (mod_pars[0] - 1) * 6)))
-
-    inv_sigma2 = 1.0 / (photo_data[2] ** 2 + mod_flux ** 2 * np.exp(2.0 * np.log(1.0e-10)))
-    print("Custom optimized value:",
-          -0.5 * (np.sum((photo_data[1] - mod_flux) ** 2 * inv_sigma2 - np.log(inv_sigma2))))
+    print("here2")
+    # print("Reduced chi-square:",
+    #       np.sum(((photo_data[1] - mod_flux) / photo_data[2]) ** 2) /
+    #       (photo_data[2].size - 1 - (mod_pars[0] * 5 + (mod_pars[0] - 1) * 6)))
+    #
+    # inv_sigma2 = 1.0 / (photo_data[2] ** 2 + mod_flux ** 2 * np.exp(2.0 * np.log(1.0e-10)))
+    # print("Custom optimized value:",
+    #       -0.5 * (np.sum((photo_data[1] - mod_flux) ** 2 * inv_sigma2 - np.log(inv_sigma2))))
 
     pylab.plot(photo_data[0], photo_data[1], 'k+')
     pylab.plot(photo_data[0], mod_flux, 'r')
@@ -93,6 +94,9 @@ def main(input_file, fit_method, nprocs):
         hammer.generate(mod_pars, body_pars, photo_data, rv_data, nwalkers, nprocs, out_prefix)
     elif fit_method == 'multinest':
         multinest.generate(mod_pars, body_pars, photo_data, rv_data, nprocs, out_prefix)
+    elif fit_method == 'cluster':
+        fparams = minimizer.generate(mod_pars, body_pars, photo_data, rv_data, 'leastsq', nprocs, out_prefix)
+        hammer.generate(mod_pars, fparams, photo_data, rv_data, nwalkers, nprocs, out_prefix)
     elif fit_method == 'plot':
         plot_model(mod_pars, body_pars, photo_data, rv_data)
     else:

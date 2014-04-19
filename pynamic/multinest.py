@@ -25,7 +25,7 @@ def per_iteration(mod_pars, theta, lnl, model):
         redchisqr = np.sum(((photo_data[1] - model) / photo_data[2]) ** 2) / \
                     (photo_data[1].size - 1 - (mod_pars[0] * 5 + (mod_pars[0] - 1) * 6))
 
-        utilfuncs.iterprint(mod_pars, params, 0.0, redchisqr, 0.0, 0.0)
+        utilfuncs.iterprint(mod_pars, params, max_lnlike, redchisqr, 0.0, 0.0)
         utilfuncs.report_as_input(mod_pars, params, fname)
 
 
