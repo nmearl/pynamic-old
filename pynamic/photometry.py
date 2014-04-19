@@ -36,7 +36,8 @@ start.argtypes = [
     ndpointer(ctypes.c_double),
     ndpointer(ctypes.c_double),
     ndpointer(ctypes.c_double),
-    ndpointer(ctypes.c_double)
+    ndpointer(ctypes.c_double),
+    ctypes.c_int
 ]
 
 
@@ -44,20 +45,20 @@ def run(inputs):
     time, time_size, \
     N, t0, maxh, orbit_error, \
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma, \
-    sub_flux, sub_rv = inputs
+    sub_flux, sub_rv, rv_body = inputs
 
     start(
         time, time_size,
         N, t0, maxh, orbit_error,
         masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma,
-        sub_flux, sub_rv
+        sub_flux, sub_rv, rv_body
     )
 
     return sub_flux, sub_rv
 
 
-def generate(params, time, ncores=1):
-    N, t0, maxh, orbit_error, \
+def generate(mod_pars, params, time, ncores=1):
+    N, t0, maxh, orbit_error, rv_body, rv_corr = mod_pars
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
 
     time_chunks = np.array_split(time, ncores)
@@ -68,7 +69,8 @@ def generate(params, time, ncores=1):
             N, t0, maxh, orbit_error,
             masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma,
             np.zeros(len(time_chunks[i])),
-            np.zeros(len(time_chunks[i]))
+            np.zeros(len(time_chunks[i])),
+            rv_body - 1
         ]
         for i in range(ncores)
     ]
@@ -89,7 +91,7 @@ def generate(params, time, ncores=1):
 
     result = np.array(result)
 
-    return np.concatenate(result[:, 0]), np.concatenate(result[:, 1]) * 1731 - 27.278 - 0.26
+    return np.concatenate(result[:, 0]), np.concatenate(result[:, 1])
 
 
 # def generate(time, params):

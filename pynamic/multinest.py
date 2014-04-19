@@ -8,35 +8,30 @@ import numpy as np
 import pymultinest
 import matplotlib.pyplot as plt
 import utilfuncs
-import photometry
 
-x = None
-y = None
-yerr = None
-rv_data = None
-N = None
-t0 = None
-maxh = None
-orbit_error = None
 max_lnlike = -np.inf
+mod_pars = None
+photo_data = None
+rv_data = None
+ncores = 1
 fname = ""
 
 
-def per_iteration(theta, lnl, model):
+def per_iteration(mod_pars, theta, lnl, model):
     global max_lnlike
     if lnl > max_lnlike:
         max_lnlike = lnl
-        params = np.append(np.array([N, t0, maxh, orbit_error]), theta)
-        params = utilfuncs.split_parameters(params)
-        redchisqr = np.sum(((y - model) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6))
-        utilfuncs.iterprint(params, lnl, redchisqr, 0.0, 0.0)
-        utilfuncs.report_as_input(params, fname)
+        params = utilfuncs.split_parameters(theta, mod_pars[0])
+        redchisqr = np.sum(((photo_data[1] - model) / photo_data[2]) ** 2) / \
+                    (photo_data[1].size - 1 - (mod_pars[0] * 5 + (mod_pars[0] - 1) * 6))
+
+        utilfuncs.iterprint(mod_pars, params, 0.0, redchisqr, 0.0, 0.0)
+        utilfuncs.report_as_input(mod_pars, params, fname)
 
 
 def lnprior(cube, ndim, nparams):
     theta = np.array([cube[i] for i in range(ndim)])
-    sys = np.array([N, t0, maxh, orbit_error])
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(np.append(sys, theta))[4:]
+    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(theta, mod_pars[0])
 
     masses = 10**(masses*8 - 9)
     radii = 10**(radii*4 - 4)
@@ -57,50 +52,32 @@ def lnprior(cube, ndim, nparams):
 def lnlike(cube, ndim, nparams):
     theta = np.array([cube[i] for i in range(ndim)])
 
-    if len(theta[~np.isfinite(theta)]) > 0:
-        return -np.inf
+    params = utilfuncs.split_parameters(theta, mod_pars[0])
 
-    sys = np.array([N, t0, maxh, orbit_error])
-    params = utilfuncs.split_parameters(np.append(sys, theta))
-
-    mod_flux, mod_rv = utilfuncs.model(params, x, rv_data[0])
-
-    # lnf = np.log(1.0e-10)  # Natural log of the underestimation fraction
-    # inv_sigma2 = 1.0 / (yerr ** 2 + model ** 2 * np.exp(2 * lnf))
-    # lnl = -0.5 * (np.sum((y - model) ** 2 * inv_sigma2 - np.log(inv_sigma2)))
-
-    mod_flux, mod_rv = utilfuncs.model(params, x, rv_data[0])
-    flnl = np.sum((-0.5 * ((mod_flux - y) / yerr)**2))
+    mod_flux, mod_rv = utilfuncs.model(mod_pars, params, photo_data[0], rv_data[0])
+    flnl = np.sum((-0.5 * ((mod_flux - photo_data[1]) / photo_data[2]) ** 2))
     rvlnl = np.sum((-0.5 * ((mod_rv - rv_data[1]) / rv_data[2])**2))
 
-    per_iteration(theta, flnl, mod_flux)
+    per_iteration(mod_pars, theta, flnl, mod_flux)
 
     return flnl + rvlnl
 
 
-def generate(params, lx, ly, lyerr, lrv_data, lncores, lfname):
-    lN, lt0, lmaxh, lorbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
-
-    global x, y, yerr, rv_data, N, t0, maxh, orbit_error, ncores, fname
-    x, y, yerr, rv_data, N, t0, maxh, orbit_error, ncores, fname \
-        = lx, ly, lyerr, lrv_data, lN, lt0, lmaxh, lorbit_error, lncores, lfname
+def generate(lmod_pars, lparams, lphoto_data, lrv_data, lncores, lfname):
+    global mod_pars, params, photo_data, rv_data, ncores, fname
+    mod_pars, params, photo_data, rv_data, ncores, fname = \
+        lmod_pars, lparams, lphoto_data, lrv_data, lncores, lfname
 
     # number of dimensions our problem has
-    parameters = ["{0}".format(i) for i in range(N*5 + (N-1)*6)]
+    parameters = ["{0}".format(i) for i in range(mod_pars[0] * 5 + (mod_pars[0] - 1) * 6)]
     n_params = len(parameters)
 
     # make sure the output directories exist
-    if not os.path.exists("./output"):
-        os.mkdir("./output")
-
-    if not os.path.exists("./output/{0}".format(fname)):
-        os.mkdir("./output/{0}".format(fname))
-
-    if not os.path.exists("./output/{0}/reports".format(fname)):
-        os.mkdir("./output/{0}/reports".format(fname))
+    if not os.path.exists("./output/{0}/multinest".format(fname)):
+        os.makedirs(os.path.join("./", "output", "{0}".format(fname), "multinest"))
 
     if not os.path.exists("./output/{0}/plots".format(fname)):
-        os.mkdir("./output/{0}/plots".format(fname))
+        os.makedirs(os.path.join("./", "output", "{0}".format(fname), "plots"))
 
     # we want to see some output while it is running
     # progress_plot = pymultinest.ProgressPlotter(n_params=n_params, outputfiles_basename='./output/{0}/reports/'.format(fname))
@@ -109,26 +86,26 @@ def generate(params, lx, ly, lyerr, lrv_data, lncores, lfname):
     # progress_print.start()
 
     # run MultiNest
-    pymultinest.run(lnlike, lnprior, n_params, outputfiles_basename='./output/{0}/reports/'.format(fname),
+    pymultinest.run(lnlike, lnprior, n_params, outputfiles_basename='./output/{0}/multinest/'.format(fname),
                     resume=True, verbose=True)
 
     # run has completed
     # progress_plot.stop()
     # progress_print.stop()
-    json.dump(parameters, open('./output/{0}/params.json'.format(fname), 'w'))  # save parameter names
+    json.dump(parameters, open('./output/{0}/multinest/params.json'.format(fname), 'w'))  # save parameter names
 
     # plot the distribution of a posteriori possible models
     plt.figure()
-    plt.plot(x, y, '+ ', color='red', label='data')
+    plt.plot(photo_data[0], photo_data[1], '+ ', color='red', label='data')
+
     a = pymultinest.Analyzer(outputfiles_basename="./output/{0}/reports/".format(fname), n_params=n_params)
 
     for theta in a.get_equal_weighted_posterior()[::100, :-1]:
-        sys = np.array([N, t0, maxh, orbit_error])
-        params = utilfuncs.split_parameters(np.append(sys, theta))
+        params = utilfuncs.split_parameters(theta, mod_pars[0])
 
-        mod_flux, mod_rv = utilfuncs.model(params, x)
+        mod_flux, mod_rv = utilfuncs.model(mod_pars, params, photo_data[0], rv_data[0])
 
-        plt.plot(x, mod_flux, '-', color='blue', alpha=0.3, label='data')
+        plt.plot(photo_data[0], mod_flux, '-', color='blue', alpha=0.3, label='data')
 
     utilfuncs.report_as_input(params, fname)
 

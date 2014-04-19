@@ -1,217 +1,137 @@
 __author__ = 'nmearl'
 
-import numpy as np
-import time
 # import matplotlib
 # matplotlib.use('agg')
+import numpy as np
 import pylab
-import photometry
 import minimizer
 import hammer
 import utilfuncs
 import argparse
-import re
 try:
     import multinest
 except:
     pass
 
 
-def read_data(data_file):
-    """Reads in photometric data. File must have at least two columns, error is optional.
+def read_input(input_file):
+    temp_dict = {}
 
-    @param data_file: Path of file.
-    @return: Numpy arrays of the times, data, and data error.
-    """
-    data_times, data_fluxes, data_yerr = [], [], []
-
-    with open('{0}'.format(data_file), 'r') as f:
-        for line in f.readlines():
-            if line[0] == '#':
+    with open('{0}'.format(input_file), 'r') as f:
+        for line in f:
+            if line[0] is '#':
                 continue
 
-            time, flux, err = line.strip().split()[:3]
-            data_times.append(float(time))
-            data_fluxes.append(float(flux))
-            data_yerr.append(float(err))
+            nline = line.strip().split('#')[0]
+            n, v = nline.strip().split('=')
+            temp_dict[n.strip()] = v.strip()
 
-            # if len(data_yerr) == 0:
-            # data_yerr = np.ones(len(data_fluxes))
-            # x, y, data_yerr = kepler.get_fits_data('5897826', use_pdc=True, use_slc=False)
+            # input_pars = [line.strip() for line in f.readlines() if line[0] is not '#']
 
-    return np.array(data_times), np.array(data_fluxes), np.array(data_yerr)
+    photo_data_file = temp_dict['photo_data_file']
+    rv_data_file = temp_dict['rv_data_file']
+    rv_body = int(temp_dict['rv_body']) if temp_dict['rv_body'] else 0
+    rv_corr = float(temp_dict['rv_corr'])
+    nwalkers = int(temp_dict['nwalkers'])
+    out_prefix = temp_dict['out_prefix']
 
+    nbodies = int(temp_dict['nbodies'])
+    epoch = float(temp_dict['epoch'])
+    max_h = float(temp_dict['max_h'])
+    orbit_error = float(temp_dict['orbit_error'])
 
-def read_input(input_file):
-    """Reads in the formatted input file.
+    masses = np.array([float(x) for x in temp_dict['masses'].split()])
+    radii = np.array([float(x) for x in temp_dict['radii'].split()])
+    fluxes = np.array([float(x) for x in temp_dict['fluxes'].split()])
+    u1 = np.array([float(x) for x in temp_dict['u1'].split()])
+    u2 = np.array([float(x) for x in temp_dict['u2'].split()])
 
-    @param input_file: Path of file.
-    @return: Tuple containing all 15 parameter data.
-    """
-    with open('{0}'.format(input_file), 'r') as f:
-        input_pars = [line.strip() for line in f.readlines() if line[0] is not '#']
+    a = np.array([float(x) for x in temp_dict['a'].split()])
+    e = np.array([float(x) for x in temp_dict['e'].split()])
+    inc = np.array([float(x) for x in temp_dict['inc'].split()])
+    om = np.array([float(x) for x in temp_dict['om'].split()])
+    ln = np.array([float(x) for x in temp_dict['ln'].split()])
+    ma = np.array([float(x) for x in temp_dict['ma'].split()])
 
-    N = [int(i.strip()) for i in input_pars[0].split('#')][0]
-    t0 = [float(i.strip()) for i in input_pars[1].split('#')][0]
-    maxh = [float(i.strip()) for i in input_pars[2].split('#')][0]
-    orbit_error = [float(i.strip()) for i in input_pars[3].split('#')][0]
+    sys_pars = [photo_data_file, rv_data_file, nwalkers, out_prefix]
+    mod_pars = [nbodies, epoch, max_h, orbit_error, rv_body, rv_corr]
+    body_pars = [masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma]
 
-    masses = np.array([float(i.strip()) for i in input_pars[4].split()])
-    radii = np.array([float(i.strip()) for i in input_pars[5].split()])
-    fluxes = np.array([float(i.strip()) for i in input_pars[6].split()])
-    u1 = np.array([float(i.strip()) for i in input_pars[7].split()])
-    u2 = np.array([float(i.strip()) for i in input_pars[8].split()])
-
-    a = np.array([float(i.strip()) for i in input_pars[9].split()])
-    e = np.array([float(i.strip()) for i in input_pars[10].split()])
-    inc = np.array([float(i.strip()) for i in input_pars[11].split()])
-    om = np.array([float(i.strip()) for i in input_pars[12].split()])
-    ln = np.array([float(i.strip()) for i in input_pars[13].split()])
-    ma = np.array([float(i.strip()) for i in input_pars[14].split()])
-
-    return N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
+    return sys_pars, mod_pars, body_pars
 
 
-def get_random_pos(N, t0, maxh, orbit_error):
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = utilfuncs.split_parameters(utilfuncs.random_pos(N, 1)[0], N)
-    return N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
+def plot_model(mod_pars, body_pars, photo_data, rv_data):
+    mod_flux, mod_rv = utilfuncs.model(mod_pars, body_pars, photo_data[0], photo_data[0])
 
+    print("Reduced chi-square:",
+          np.sum(((photo_data[1] - mod_flux) / photo_data[2]) ** 2) /
+          (photo_data[2].size - 1 - (mod_pars[0] * 5 + (mod_pars[0] - 1) * 6)))
 
-def plot_model(params, x, y, yerr, rv_data):
-    """Simple plot routine to visualize the modelled input parameters.
+    inv_sigma2 = 1.0 / (photo_data[2] ** 2 + mod_flux ** 2 * np.exp(2.0 * np.log(1.0e-10)))
+    print("Custom optimized value:",
+          -0.5 * (np.sum((photo_data[1] - mod_flux) ** 2 * inv_sigma2 - np.log(inv_sigma2))))
 
-    @param params: Tuple of the parameters.
-    @param x: Time data.
-    @param y: Flux data.
-    @param yerr: Flux error.
-    """
-    N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
-
-    mod_flux, mod_rv = photometry.generate(params, x, ncores)
-
-    print("Reduced chi-square:", np.sum(((y - mod_flux) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6)))
-    inv_sigma2 = 1.0 / (yerr ** 2 + mod_flux ** 2 * np.exp(2.0 * np.log(1.0e-10)))
-    print("Custom optimized value:", -0.5 * (np.sum((y - mod_flux) ** 2 * inv_sigma2 - np.log(inv_sigma2))))
-
-    pylab.plot(x, y, 'k+')
-    pylab.plot(x, mod_flux, 'r')
+    pylab.plot(photo_data[0], photo_data[1], 'k+')
+    pylab.plot(photo_data[0], mod_flux, 'r')
     pylab.show()
 
-    pylab.plot(x, rv_data[1], 'k+')
-    pylab.plot(x, mod_rv, 'r')
+    pylab.plot(rv_data[0], rv_data[1], 'o')
+    pylab.plot(photo_data[0], mod_rv, 'r')
     pylab.show()
 
 
-def main(data_file, rv_file, fit_method, input_file, nwalkers, niterations, ncores, syspars, randpars):
-    """The main function mediates the reading of the data and input parameters, and starts the optimization using the
-    specified method.
+def main(input_file, fit_method, nprocs):
+    sys_pars, mod_pars, body_pars = read_input(input_file)
+    photo_data_file, rv_data_file, nwalkers, out_prefix = sys_pars
 
-    @param data_file: Path to data file.
-    @param fit_method: Currently: 'min' is least squares optimization, and 'mcmc' is the emcee hammer optimization. The
-    'plot' option is used to simply plot the returned model based on the supplied parameters.
-    @param input_file: Path to input file.
-    """
+    photo_data = np.loadtxt(photo_data_file, unpack=True, usecols=(0, 1, 2))
 
-    if input_file:
-        params = read_input(input_file)
-    elif syspars:
-        print('No initial parameter set specified, randomly sampling parameter space...')
-        N, t0, maxh, orbit_error = map(float, syspars)
-        params = get_random_pos(int(N), t0, maxh, orbit_error)
-    else:
-        print('No initial parameter set specified, randomly sampling parameter space...')
-        N = int(raw_input('\tEnter the number of bodies: '))
-        t0 = float(raw_input('\tEnter the epoch of coordinates: '))
-        maxh = float(raw_input('\tEnter the maximum time step (default: 0.01): '))
-        orbit_error = float(raw_input('\tEnter the orbit error tolerance (default: 1e-20): '))
-
-        params = get_random_pos(N, t0, maxh, orbit_error)
-
-    if not fit_method:
-        print('You have not specified a fit method, defaulting to least squares minimization.')
-
-    if '.' in data_file:
-        x, y, yerr = read_data(data_file)
-    else:
-        return
-
-    rv_data = np.zeros((3, 0))
-
-    if rv_file:
-        rv_data = np.loadtxt(rv_file, unpack=True, usecols=(0, 1, 2))
-
-    time_start = time.time()
-
-    fname = data_file.split('/')[-1].split('.')[0]
-
-    n = int(len(x))
-
-    try:
-        fname = re.findall(r'\d+', fname)[0]
-        fname = "{0:09d}".format(int(fname))
-    except:
-        print('Unable to extract KID, falling back to data file name.')
+    rv_data = np.loadtxt(rv_data_file, unpack=True, usecols=(0, 1, 2)) \
+        if rv_data_file else np.zeros((3, 0))
 
     if fit_method == 'mcmc':
-        hammer.generate(
-            params, x[:n], y[:n], yerr[:n], rv_data,
-            nwalkers, niterations, ncores, randpars, fname
-        )
-
-    elif fit_method == 'plot':
-        plot_model(params, x[:n], y[:n], yerr[:n], rv_data)
-
-    elif fit_method == 'cluster':
-        fparams = minimizer.generate(
-            params, x[:n], y[:n], yerr[:n], rv_data,
-            'leastsq', ncores, fname
-        )
-
-        hammer.generate(
-            fparams, x[:n], y[:n], yerr[:n], rv_data,
-            nwalkers, niterations, ncores, randpars, fname
-        )
+        hammer.generate(mod_pars, body_pars, photo_data, rv_data, nwalkers, nprocs, out_prefix)
     elif fit_method == 'multinest':
-        multinest.generate(params, x, y, yerr, rv_data,
-                           ncores, fname)
-
+        multinest.generate(mod_pars, body_pars, photo_data, rv_data, nprocs, out_prefix)
+    elif fit_method == 'plot':
+        plot_model(mod_pars, body_pars, photo_data, rv_data)
     else:
-        minimizer.generate(
-            params, x[:n], y[:n], yerr[:n], rv_data,
-            fit_method, ncores, fname
-        )
-
-    print "Total time:", time.time() - time_start
+        minimizer.generate(mod_pars, body_pars, photo_data, rv_data, fit_method, nprocs, out_prefix)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Photometric dynamical modeling code.')
-    parser.add_argument('data', help='data file containing detrended light curve')
+    parser.add_argument('input_file', help='input file containing all necessary parameters')
+    # parser.add_argument('data', help='data file containing detrended light curve')
+    # parser.add_argument('rv', help='path to the radial velocity data')
     parser.add_argument('-f', '--fit', help='fit method used to minimize',
                         choices=['multinest', 'mcmc', 'leastsq', 'nelder', 'lbfgsb', 'anneal', 'powell',
                                  'cg', 'newton', 'cobyla', 'slsqp', 'plot', 'cluster'], default='leastsq')
-    parser.add_argument('-i', '--input', help='input file containing initial parameters (overrides --system)')
-    parser.add_argument('-w', '--walkers', type=int, default=250,
-                        help='number of walkers if using mcmc fit method ')
-    parser.add_argument('-t', '--iterations', type=int, default=500,
-                        help='number of iterations to perform if using mcmc fit method')
-    parser.add_argument('-c', '--cores', type=int, default=1,
-                        help='number of cores to utilize')
-    parser.add_argument('-s', '--system', nargs=4,
-                        help='four initial system parameters: N, t0, maxh, orbit_error')
-    parser.add_argument('-rv', '--radial_velocity',
-                        help='path to the radial velocity data')
+    # parser.add_argument('-i', '--input', help='input file containing initial parameters (overrides --system)')
+    # parser.add_argument('-w', '--walkers', type=int, default=250,
+    #                     help='number of walkers if using mcmc fit method ')
+    # parser.add_argument('-t', '--iterations', type=int, default=500,
+    #                     help='number of iterations to perform if using mcmc fit method')
+    parser.add_argument('-p', '--procs', type=int, default=1,
+                        help='number of processors to utilize')
+    # parser.add_argument('-s', '--system', nargs=4,
+    #                     help='four initial system parameters: N, t0, maxh, orbit_error')
+    # parser.add_argument('-rvb', '--rv_body', type=int, default=1,
+    #                     help='which body is the radial velocity data for')
 
     args = parser.parse_args()
-    data_file = args.data
-    rv_file = args.radial_velocity
+    input_file = args.input_file
+    # data_file = args.data
+    # rv_file = args.radial_velocity
     fit_method = args.fit
-    input_file = args.input
-    nwalkers = args.walkers
-    niterations = args.iterations
+    # input_file = args.input
+    # nwalkers = args.walkers
+    # niterations = args.iterations
     ncores = args.cores
-    syspars = args.system
-    randpars = True if not input_file else False
+    # syspars = args.system
+    # randpars = True if not input_file else False
+    # rv_body = args.rv_body
 
     # cProfile.run('main(data_file, rv_file, fit_method, input_file, nwalkers, niterations, ncores, syspars, randpars)')
-    main(data_file, rv_file, fit_method, input_file, nwalkers, niterations, ncores, syspars, randpars)
+    # main(data_file, rv_file, rv_body, fit_method, input_file, nwalkers, niterations, ncores, syspars, randpars)
+    main(input_file, fit_method, ncores)

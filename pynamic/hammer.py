@@ -7,11 +7,11 @@ import photometry
 import os
 import time
 import minimizer
+import itertools
 
 
 # Define the probability function as likelihood * prior.
 def lnprior(params):
-    N, t0, maxh, orbit_error, \
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
 
     if len(masses[(masses <= 0.0) | (masses > 0.1)]) == 0 \
@@ -30,15 +30,13 @@ def lnprior(params):
     return -np.inf
 
 
-def lnlike(params, x, y, yerr, rv_data):
-
+def lnlike(mod_pars, params, photo_data, rv_data):
     # lnf = np.log(1.0e-10)  # Natural log of the underestimation fraction
     # inv_sigma2 = 1.0 / (yerr ** 2 + model ** 2 * np.exp(2 * lnf))
     # return -0.5 * (np.sum((y - model) ** 2 * inv_sigma2 - np.log(inv_sigma2)))
 
-    # if rv_data is not None:
-    mod_flux, mod_rv = utilfuncs.model(params, x, rv_data[0])
-    flnl = np.sum((-0.5 * ((mod_flux - y) / yerr)**2))
+    mod_flux, mod_rv = utilfuncs.model(mod_pars, params, photo_data[0], rv_data[0])
+    flnl = np.sum((-0.5 * ((mod_flux - photo_data[1]) / photo_data[2]) ** 2))
     rvlnl = np.sum((-0.5 * ((mod_rv - rv_data[1]) / rv_data[2])**2))
 
     return flnl + rvlnl
@@ -48,50 +46,43 @@ def lnlike(params, x, y, yerr, rv_data):
     # return lnl
 
 
-def lnprob(theta, sys, x, y, yerr, rv_data):
-    params = utilfuncs.split_parameters(np.append(sys, theta))
+def lnprob(theta, mod_pars, photo_data, rv_data):
+    params = utilfuncs.split_parameters(theta, mod_pars[0])
     lp = lnprior(params)
 
     if not np.isfinite(lp):
         return -np.inf
 
-    return lp + lnlike(params, x, y, yerr, rv_data)
+    return lp + lnlike(mod_pars, params, photo_data, rv_data)
 
 
-def generate(params, x, y, yerr, rv_data, nwalkers, niterations, ncores, randpars, fname):
-    # np.seterr(all='raise')
-
-    N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
-    theta = np.concatenate([masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma])
-
-    sys = [N, t0, maxh, orbit_error]
-
-    yerr = np.array(yerr)
+def generate(mod_pars, body_pars, photo_data, rv_data, nwalkers, ncores, fname, niterations=1):
+    # Flatten body parameters
+    theta = np.array(list(itertools.chain.from_iterable(body_pars)))
 
     # Set up the sampler.
     ndim = len(theta)
+    theta[theta == 0.0] = 1.0e-10
+    pos0 = [theta + theta * 1.0e-3 * np.random.randn(ndim) for i in range(nwalkers)]
 
-    # Generate parameters if no input file; give non zero amount to parameters with 0.0 value if given input file
-    if randpars:
-        print('Generating random parameters...')
-        # pos0 = [np.concatenate(utilfuncs.random_pos(N)) for i in range(nwalkers)]
-        pos0 = utilfuncs.random_pos(N, nwalkers)
-    else:
-        theta[theta == 0.0] = 1.0e-10
-        pos0 = [theta + theta * 1.0e-3 * np.random.randn(ndim) for i in range(nwalkers)]
-
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(sys, x, y, yerr, rv_data), threads=ncores)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(mod_pars, photo_data, rv_data), threads=ncores)
 
     # Clear and run the production chain.
     print("Running MCMC...")
 
-    if not os.path.exists("./output"):
-        os.mkdir("./output")
+    # Make sure paths exist
+    if not os.path.exists("./output/{0}/reports".format(fname)):
+        os.makedirs(os.path.join("./", "{0}".format(fname), "output", "reports"))
 
     # Setup some values for tracking time and completion
     citer, tlast, tsum = 0.0, time.time(), []
 
     for pos, lnp, state in sampler.sample(pos0, iterations=niterations, storechain=True):
+        # Save out the chain for later analysis
+        with open("./output/reports/mcmc_chain.dat", "a+") as f:
+            for k in range(pos.shape[0]):
+                f.write("{0:4d} {1:s}\n".format(k, " ".join(map(str, pos[k]))))
+
         citer += 1.0
         tsum.append(time.time() - tlast)
         tleft = np.median(tsum) * (niterations - citer)
@@ -100,12 +91,12 @@ def generate(params, x, y, yerr, rv_data, nwalkers, niterations, ncores, randpar
         maxlnprob = np.argmax(lnp)
         bestpos = pos[maxlnprob, :]
 
-        params = utilfuncs.split_parameters(np.append(sys, bestpos))
+        params = utilfuncs.split_parameters(bestpos, mod_pars[0])
 
-        redchisqr = utilfuncs.reduced_chisqr(params, x, y, yerr, rv_data)
+        redchisqr = utilfuncs.reduced_chisqr(mod_pars, params, photo_data, rv_data)
 
-        utilfuncs.iterprint(params, lnp[maxlnprob], redchisqr, citer / niterations, tleft)
-        utilfuncs.report_as_input(params, fname)
+        utilfuncs.iterprint(mod_pars, params, lnp[maxlnprob], redchisqr, citer / niterations, tleft)
+        utilfuncs.report_as_input(mod_pars, params, fname)
 
     # Remove 'burn in' region
     print('Burning in; creating sampler chain...')
@@ -125,5 +116,5 @@ def generate(params, x, y, yerr, rv_data, nwalkers, niterations, ncores, randpar
     # Produce final model and save the values
     print('Saving final results...')
 
-    utilfuncs.mcmc_report_out(sys, results, fname)
+    utilfuncs.mcmc_report_out(mod_pars, results, fname)
     utilfuncs.plot_out(params, fname, sampler, samples, ndim)

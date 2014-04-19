@@ -8,97 +8,61 @@ import photometry
 import time
 
 
-def model(params, flux_x, rv_x, ncores=1):
+def model(mod_pars, params, flux_x, rv_x, ncores=1):
     x = np.append(flux_x, rv_x)
-    x = x[np.argsort(x)]
+    x = np.unique(x[np.argsort(x)])
 
-    flux_inds = np.in1d(x, flux_x)
-    rv_inds = np.in1d(x, rv_x)
+    flux_inds = np.in1d(x, flux_x, assume_unique=True)
+    rv_inds = np.in1d(x, rv_x, assume_unique=True)
 
-    mod_flux, mod_rv = photometry.generate(params, x, ncores)
+    mod_flux, mod_rv = photometry.generate(mod_pars, params, x, ncores)
 
     return mod_flux[flux_inds], mod_rv[rv_inds]
 
 
-def get_lmfit_parameters(params):
-    N = params['N'].value
-    t0 = params['t0'].value
-    maxh = params['maxh'].value
-    orbit_error = params['orbit_error'].value
+def get_lmfit_parameters(mod_pars, params):
+    N, t0, maxh, orbit_error, rv_body, rv_corr = mod_pars
 
-    masses = np.array([params['mass_{0}'.format(i)].value for i in range(params['N'].value)])
-    radii = np.array([params['radius_{0}'.format(i)].value for i in range(params['N'].value)])
-    fluxes = np.array([params['flux_{0}'.format(i)].value for i in range(params['N'].value)])
-    u1 = np.array([params['u1_{0}'.format(i)].value for i in range(params['N'].value)])
-    u2 = np.array([params['u2_{0}'.format(i)].value for i in range(params['N'].value)])
+    masses = np.array([params['mass_{0}'.format(i)].value for i in range(N)])
+    radii = np.array([params['radius_{0}'.format(i)].value for i in range(N)])
+    fluxes = np.array([params['flux_{0}'.format(i)].value for i in range(N)])
+    u1 = np.array([params['u1_{0}'.format(i)].value for i in range(N)])
+    u2 = np.array([params['u2_{0}'.format(i)].value for i in range(N)])
 
-    a = np.array([params['a_{0}'.format(i)].value for i in range(1, params['N'].value)])
-    e = np.array([params['e_{0}'.format(i)].value for i in range(1, params['N'].value)])
-    inc = np.array([params['inc_{0}'.format(i)].value for i in range(1, params['N'].value)])
-    om = np.array([params['om_{0}'.format(i)].value for i in range(1, params['N'].value)])
-    ln = np.array([params['ln_{0}'.format(i)].value for i in range(1, params['N'].value)])
-    ma = np.array([params['ma_{0}'.format(i)].value for i in range(1, params['N'].value)])
+    a = np.array([params['a_{0}'.format(i)].value for i in range(1, N)])
+    e = np.array([params['e_{0}'.format(i)].value for i in range(1, N)])
+    inc = np.array([params['inc_{0}'.format(i)].value for i in range(1, N)])
+    om = np.array([params['om_{0}'.format(i)].value for i in range(1, N)])
+    ln = np.array([params['ln_{0}'.format(i)].value for i in range(1, N)])
+    ma = np.array([params['ma_{0}'.format(i)].value for i in range(1, N)])
 
-    return N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
+    return masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
 
 
-def random_pos(N, nwalkers):
-    all_masses = 10**-np.logspace(0.0, 1.0, nwalkers)
-    all_radii = 10 * 10**-np.logspace(0.4, 0.7, nwalkers)
-    all_fluxes = np.random.uniform(0.0, 1.0, nwalkers)
-    all_u1 = np.random.uniform(0.0, 1.0, nwalkers)
-    all_u2 = np.random.uniform(0.0, 1.0, nwalkers)
-    all_a = 10 * 10**-np.logspace(0.0, 0.6, nwalkers)
-    all_e = np.random.uniform(0.0, 1.0, nwalkers)
-    all_inc = np.random.normal(np.pi/2, 0.1, nwalkers)
-    all_om = np.random.uniform(-2 * np.pi, 2 * np.pi, nwalkers)
-    all_ln = np.random.uniform(-np.pi, np.pi, nwalkers)
-    all_ma = np.random.uniform(0.0, 2 * np.pi, nwalkers)
+def split_parameters(params, nbodies):
+    body_params, kep_params = params[:(5 * nbodies)], params[(5 * nbodies):]
 
-    pos = []
-    for i in range(nwalkers):
-        masses = np.array([all_masses[i] for i in np.random.randint(nwalkers, size=N)])
-        radii = np.array([all_radii[i] for i in np.random.randint(nwalkers, size=N)])
-        fluxes = np.array([all_fluxes[i] for i in np.random.randint(nwalkers, size=N)])
-        u1 = np.array([all_u1[i] for i in np.random.randint(nwalkers, size=N)])
-        u2 = np.array([all_u2[i] for i in np.random.randint(nwalkers, size=N)])
-        a = np.sort(np.array([all_a[i] for i in np.random.randint(nwalkers, size=N-1)]))
-        e = np.array([all_e[i] for i in np.random.randint(nwalkers, size=N-1)])
-        inc = np.array([all_inc[i] for i in np.random.randint(nwalkers, size=N-1)])
-        om = np.array([all_om[i] for i in np.random.randint(nwalkers, size=N-1)])
-        ln = np.array([all_ln[i] for i in np.random.randint(nwalkers, size=N-1)])
-        ma = np.array([all_ma[i] for i in np.random.randint(nwalkers, size=N-1)])
+    masses, radii, fluxes, u1, u2 = [np.array(body_params[i:nbodies + i]) for i in range(0, len(body_params), nbodies)]
+    a, e, inc, om, ln, ma = [np.array(kep_params[i:nbodies - 1 + i]) for i in range(0, len(kep_params), nbodies - 1)]
 
-        pos.append(np.concatenate([masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma]))
-
-    return np.array(pos)
+    return masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
 
 
-def split_parameters(params):
-    N, t0, maxh, orbit_error = params[:4]
-    N = int(N)
+def reduced_chisqr(mod_pars, params, photo_data, rv_data):
+    mod_flux, mod_rv = model(mod_pars, params, photo_data[0], rv_data[0])
 
-    body_params, kep_params = params[4:4 + (5 * N)], params[4 + (5 * N):]
+    nbodies = mod_pars[0]
 
-    masses, radii, fluxes, u1, u2 = [np.array(body_params[i:N + i]) for i in range(0, len(body_params), N)]
-    a, e, inc, om, ln, ma = [np.array(kep_params[i:N - 1 + i]) for i in range(0, len(kep_params), N - 1)]
-
-    return N, t0, maxh, orbit_error, masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma
-
-
-def reduced_chisqr(params, x, y, yerr, rv_data):
-    N = params[0]
-
-    mod_flux, mod_rv = model(params, x, rv_data[0])
-
-    flnl = np.sum(((y - mod_flux) / yerr) ** 2) / (y.size - 1 - (N * 5 + (N - 1) * 6))
-    rvlnl = np.sum(((rv_data[1] - mod_rv) / rv_data[2]) ** 2) / (rv_data[1].size - 1 - (N * 5 + (N - 1) * 6))
+    flnl = np.sum(((photo_data[1] - mod_flux) / photo_data[2]) ** 2) / \
+           (photo_data[1].size - 1 - (nbodies * 5 + (nbodies - 1) * 6))
+    rvlnl = np.sum(((rv_data[1] - mod_rv) / rv_data[2]) ** 2) / \
+            (rv_data[1].size - 1 - (nbodies * 5 + (nbodies - 1) * 6))
 
     return flnl #+ rvlnl
 
 
-def iterprint(params, maxlnp, redchisqr, percomp, tleft):
-    N, t0, maxh, orbit_error, \
+def iterprint(mod_pars, params, maxlnp, redchisqr, percomp, tleft):
+    nbodies = mod_pars[0]
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
 
     print('=' * 80)
@@ -113,7 +77,7 @@ def iterprint(params, maxlnp, redchisqr, percomp, tleft):
         )
     )
 
-    for i in range(N):
+    for i in range(nbodies):
         print(
             '{0:11s} {1:1.5e} {2:1.5e} {3:1.5e} {4:1.5e} {5:1.5e}'.format(
                 str(i + 1), masses[i], radii[i], fluxes[i], u1[i], u2[i]
@@ -130,7 +94,7 @@ def iterprint(params, maxlnp, redchisqr, percomp, tleft):
         )
     )
 
-    for i in range(N - 1):
+    for i in range(nbodies - 1):
         print(
             '{0:11s} {1:1.5e} {2:1.5e} {3:1.5e} {4:1.5e} {5:1.5e} {6:1.5e}'.format(
                 str(i + 2), a[i], e[i], inc[i], om[i], ln[i], ma[i]
@@ -141,7 +105,6 @@ def iterprint(params, maxlnp, redchisqr, percomp, tleft):
 
 
 def plot_out(params, fname, *args):
-    N, t0, maxh, orbit_error, \
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
 
     print("Generating plots...")
@@ -186,8 +149,8 @@ def plot_out(params, fname, *args):
                 pl.close()
 
 
-def mcmc_report_out(sys, results, fname):
-    N, t0, maxh, orbit_error = sys
+def mcmc_report_out(mod_pars, results, fname):
+    N, t0, maxh, orbit_error, rv_body, rv_corr = mod_pars
     N = int(N)
 
     GMsun = 2.959122083E-4 # AU**3/day**2
@@ -257,11 +220,8 @@ def mcmc_report_out(sys, results, fname):
                 f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(name, j, param[j]))
 
 
-def report_as_input(params, fname):
-    N, t0, maxh, orbit_error, \
-    masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
-
-    results = [masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma]
+def report_as_input(mod_pars, params, fname):
+    N, t0, maxh, orbit_error, rv_body, rv_corr = mod_pars
 
     if not os.path.exists("./output"):
         os.mkdir("./output")
@@ -276,7 +236,7 @@ def report_as_input(params, fname):
         f.write("{0:f}\n".format(maxh))
         f.write("{0:e}\n".format(orbit_error))
 
-        for i in range(len(results)):
-            param = results[i]
+        for i in range(len(params)):
+            param = params[i]
 
             f.write('{0:s}\n'.format(' '.join(map(str, param))))
