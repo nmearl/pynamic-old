@@ -54,7 +54,8 @@ def lnlike(cube, ndim, nparams):
 
     params = utilfuncs.split_parameters(theta, mod_pars[0])
 
-    mod_flux, mod_rv = utilfuncs.model(mod_pars, params, photo_data[0], rv_data[0])
+    mod_flux, mod_rv = utilfuncs.model(mod_pars, params, photo_data[0], rv_data[0], ncores)
+
     flnl = np.sum((-0.5 * ((mod_flux - photo_data[1]) / photo_data[2]) ** 2))
     rvlnl = np.sum((-0.5 * ((mod_rv - rv_data[1]) / rv_data[2])**2))
 
@@ -70,7 +71,7 @@ def generate(lmod_pars, lparams, lphoto_data, lrv_data, lncores, lfname):
 
     # number of dimensions our problem has
     parameters = ["{0}".format(i) for i in range(mod_pars[0] * 5 + (mod_pars[0] - 1) * 6)]
-    n_params = len(parameters)
+    nparams = len(parameters)
 
     # make sure the output directories exist
     if not os.path.exists("./output/{0}/multinest".format(fname)):
@@ -86,7 +87,7 @@ def generate(lmod_pars, lparams, lphoto_data, lrv_data, lncores, lfname):
     # progress_print.start()
 
     # run MultiNest
-    pymultinest.run(lnlike, lnprior, n_params, outputfiles_basename='./output/{0}/multinest/'.format(fname),
+    pymultinest.run(lnlike, lnprior, nparams, outputfiles_basename='./output/{0}/multinest/'.format(fname),
                     resume=True, verbose=True)
 
     # run has completed
@@ -98,7 +99,7 @@ def generate(lmod_pars, lparams, lphoto_data, lrv_data, lncores, lfname):
     plt.figure()
     plt.plot(photo_data[0], photo_data[1], '+ ', color='red', label='data')
 
-    a = pymultinest.Analyzer(outputfiles_basename="./output/{0}/reports/".format(fname), n_params=n_params)
+    a = pymultinest.Analyzer(outputfiles_basename="./output/{0}/reports/".format(fname), n_params=nparams)
 
     for theta in a.get_equal_weighted_posterior()[::100, :-1]:
         params = utilfuncs.split_parameters(theta, mod_pars[0])

@@ -31,7 +31,7 @@ def read_input(input_file):
     photo_data_file = temp_dict['photo_data_file']
     rv_data_file = temp_dict['rv_data_file']
     rv_body = int(temp_dict['rv_body']) if temp_dict['rv_body'] else 0
-    rv_corr = float(temp_dict['rv_corr'])
+    rv_corr = None  # float(temp_dict['rv_corr'])
     nwalkers = int(temp_dict['nwalkers'])
     out_prefix = temp_dict['out_prefix']
 
@@ -127,11 +127,11 @@ if __name__ == '__main__':
     # input_file = args.input
     # nwalkers = args.walkers
     # niterations = args.iterations
-    ncores = args.cores
+    nprocs = args.procs
     # syspars = args.system
     # randpars = True if not input_file else False
     # rv_body = args.rv_body
 
     # cProfile.run('main(data_file, rv_file, fit_method, input_file, nwalkers, niterations, ncores, syspars, randpars)')
     # main(data_file, rv_file, rv_body, fit_method, input_file, nwalkers, niterations, ncores, syspars, randpars)
-    main(input_file, fit_method, ncores)
+    main(input_file, fit_method, nprocs)
