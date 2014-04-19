@@ -65,12 +65,12 @@ def iterprint(mod_pars, params, maxlnp, redchisqr, percomp, tleft):
     nbodies = mod_pars[0]
     masses, radii, fluxes, u1, u2, a, e, inc, om, ln, ma = params
 
-    print('=' * 80)
+    print('=' * 83)
     print('Likelihood: {0}, Red. Chi: {1} | {2:2.1f}% complete, ~{3} left'.format(
         maxlnp, redchisqr, percomp * 100, time.strftime('%H:%M:%S', time.gmtime(tleft))))
-    print('-' * 80)
+    print('-' * 83)
     print('System parameters')
-    print('-' * 80)
+    print('-' * 83)
     print(
         '{0:11s} {1:11s} {2:11s} {3:11s} {4:11s} {5:11s} '.format(
             'Body', 'Mass', 'Radius', 'Flux', 'u1', 'u2'
@@ -84,9 +84,9 @@ def iterprint(mod_pars, params, maxlnp, redchisqr, percomp, tleft):
             )
         )
 
-    print('-' * 80)
+    print('-' * 83)
     print('Keplerian parameters')
-    print('-' * 80)
+    print('-' * 83)
 
     print(
         '{0:11s} {1:11s} {2:11s} {3:11s} {4:11s} {5:11s} {6:11s}'.format(
