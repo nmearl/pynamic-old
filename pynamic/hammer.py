@@ -56,7 +56,7 @@ def lnprob(theta, mod_pars, photo_data, rv_data):
     return lp + lnlike(mod_pars, params, photo_data, rv_data)
 
 
-def generate(mod_pars, body_pars, photo_data, rv_data, nwalkers, ncores, fname, niterations=1):
+def generate(mod_pars, body_pars, photo_data, rv_data, nwalkers, ncores, fname, niterations=500):
     # Flatten body parameters
     theta = np.array(list(itertools.chain.from_iterable(body_pars)))
 
@@ -79,7 +79,7 @@ def generate(mod_pars, body_pars, photo_data, rv_data, nwalkers, ncores, fname, 
 
     for pos, lnp, state in sampler.sample(pos0, iterations=niterations, storechain=True):
         # Save out the chain for later analysis
-        with open("./output/reports/mcmc_chain.dat", "a+") as f:
+        with open("./output/{0}/reports/mcmc_chain.dat".format(fname), "a+") as f:
             for k in range(pos.shape[0]):
                 f.write("{0:4d} {1:s}\n".format(k, " ".join(map(str, pos[k]))))
 

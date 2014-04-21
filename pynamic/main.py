@@ -8,6 +8,7 @@ import minimizer
 import hammer
 import utilfuncs
 import argparse
+
 try:
     import multinest
 except:
@@ -61,9 +62,7 @@ def read_input(input_file):
 
 
 def plot_model(mod_pars, body_pars, photo_data, rv_data):
-    print("Here")
     mod_flux, mod_rv = utilfuncs.model(mod_pars, body_pars, photo_data[0], photo_data[0])
-    print("here2")
     # print("Reduced chi-square:",
     #       np.sum(((photo_data[1] - mod_flux) / photo_data[2]) ** 2) /
     #       (photo_data[2].size - 1 - (mod_pars[0] * 5 + (mod_pars[0] - 1) * 6)))

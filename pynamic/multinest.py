@@ -81,9 +81,9 @@ def generate(lmod_pars, lparams, lphoto_data, lrv_data, lncores, lfname):
         os.makedirs(os.path.join("./", "output", "{0}".format(fname), "plots"))
 
     # we want to see some output while it is running
-    # progress_plot = pymultinest.ProgressPlotter(n_params=n_params, outputfiles_basename='./output/{0}/reports/'.format(fname))
+    # progress_plot = pymultinest.ProgressPlotter(n_params=nparams, outputfiles_basename='output/{0}/multinest/'.format(fname))
     # progress_plot.start()
-    # progress_print = pymultinest.ProgressPrinter(n_params=n_params, outputfiles_basename='./output/{0}/reports/'.format(fname))
+    # progress_print = pymultinest.ProgressPrinter(n_params=nparams, outputfiles_basename='output/{0}/multinest/'.format(fname))
     # progress_print.start()
 
     # run MultiNest

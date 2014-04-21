@@ -69,4 +69,4 @@ def generate(mod_pars, body_pars, photo_data, rv_data, fit_method, ncores, fname
     utilfuncs.report_as_input(mod_pars, utilfuncs.get_lmfit_parameters(mod_pars, results.params), fname)
 
     # Return best fit values
-    return utilfuncs.get_lmfit_parameters(results.params)
+    return utilfuncs.get_lmfit_parameters(mod_pars, results.params)
