@@ -182,9 +182,9 @@ def mcmc_report_out(mod_pars, results, fname):
         print("Carter Units")
         print("-"*50)
 
-        f.write("="*50)
-        f.write("Carter Units")
-        f.write("-"*50)
+        f.write("#" + "=" * 50 + "\n")
+        f.write("#" + "Carter Units\n")
+        f.write("#" + "-" * 50 + "\n")
 
         for i in range(len(params)):
             param = params[i]
@@ -192,15 +192,15 @@ def mcmc_report_out(mod_pars, results, fname):
 
             for j in range(len(param)):
                 print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(name, j, param[j]))
-                f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(name, j, param[j]))
+                f.write("{0}_{1} = {2[0]} {2[1]} {2[2]}\n".format(name, j, param[j]))
 
         print("="*50)
         print("Real Units")
         print("-"*50)
 
-        f.write("="*50)
-        f.write("Real Units")
-        f.write("-"*50)
+        f.write("#" + "=" * 50 + "\n")
+        f.write("#" + "Real Units\n")
+        f.write("#" + "-" * 50 + "\n")
 
         for i in range(len(params)):
             param = params[i]
@@ -217,7 +217,7 @@ def mcmc_report_out(mod_pars, results, fname):
 
             for j in range(len(param)):
                 print("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(name, j, param[j]))
-                f.write("{0}_{1} = {2[0]} +{2[1]} -{2[2]}".format(name, j, param[j]))
+                f.write("{0}_{1} = {2[0]} {2[1]} {2[2]}\n".format(name, j, param[j]))
 
 
 def report_as_input(mod_pars, params, fname):
@@ -230,7 +230,7 @@ def report_as_input(mod_pars, params, fname):
         os.mkdir("./output/{0}".format(fname))
         os.mkdir("./output/{0}/reports".format(fname))
 
-    with open('./output/{0}/reports/input_final_{1}.out'.format(fname, fname), 'w') as f:
+    with open('./output/{0}/reports/input_{1}.out'.format(fname, fname), 'w') as f:
         f.write("{0:d}\n".format(N))
         f.write("{0:f}\n".format(t0))
         f.write("{0:f}\n".format(maxh))

@@ -21,6 +21,7 @@ def per_iteration(lmparams, i, resids, mod_pars, photo_data, rv_data, *args, **k
 
 
 def residual(params, mod_pars, photo_data, rv_data, ncores, *args):
+    # mod_pars[1] = params['epoch'].value
     params = utilfuncs.get_lmfit_parameters(mod_pars, params)
 
     mod_flux, mod_rv = utilfuncs.model(mod_pars, params, photo_data[0], rv_data[0], ncores)
@@ -35,16 +36,16 @@ def generate(mod_pars, body_pars, photo_data, rv_data, fit_method, ncores, fname
 
     lmparams = lmParameters()
     # lmparams.add('N', value=N, vary=False)
-    # lmparams.add('t0', value=t0, vary=False)
+    # lmparams.add('epoch', value=epoch, vary=False)
     # lmparams.add('maxh', value=maxh, vary=False)
     # lmparams.add('orbit_error', value=orbit_error, vary=False)
 
     for i in range(nbodies):
-        lmparams.add('mass_{0}'.format(i), value=masses[i], min=0.0, max=0.1)
-        lmparams.add('radius_{0}'.format(i), value=radii[i], min=0.0, max=1.0)
-        lmparams.add('flux_{0}'.format(i), value=fluxes[i], min=0.0, max=1.0)
-        lmparams.add('u1_{0}'.format(i), value=u1[i], min=0.0, max=1.0)
-        lmparams.add('u2_{0}'.format(i), value=u2[i], min=0.0, max=1.0)
+        lmparams.add('mass_{0}'.format(i), value=masses[i], min=0.0, max=0.1, vary=False)
+        lmparams.add('radius_{0}'.format(i), value=radii[i], min=0.0, max=1.0, vary=False)
+        lmparams.add('flux_{0}'.format(i), value=fluxes[i], min=0.0, max=1.0, vary=False)
+        lmparams.add('u1_{0}'.format(i), value=u1[i], min=0.0, max=1.0, vary=False)
+        lmparams.add('u2_{0}'.format(i), value=u2[i], min=0.0, max=1.0, vary=False)
 
         # if i < N-1:
         #     params['flux_{0}'.format(i)].vary = False
@@ -52,9 +53,9 @@ def generate(mod_pars, body_pars, photo_data, rv_data, fit_method, ncores, fname
         #     params['u2_{0}'.format(i)].vary = False
 
         if i > 0:
-            lmparams.add('a_{0}'.format(i), value=a[i - 1], min=0.0, max=10.0)
-            lmparams.add('e_{0}'.format(i), value=e[i - 1], min=0.0, max=1.0)
-            lmparams.add('inc_{0}'.format(i), value=inc[i - 1], min=0.0, max=np.pi)
+            lmparams.add('a_{0}'.format(i), value=a[i - 1], min=0.0, max=10.0, vary=False)
+            lmparams.add('e_{0}'.format(i), value=e[i - 1], min=0.0, max=1.0, vary=False)
+            lmparams.add('inc_{0}'.format(i), value=inc[i - 1], min=0.0, max=np.pi, vary=False)
             lmparams.add('om_{0}'.format(i), value=om[i - 1], min=0.0, max=twopi)
             lmparams.add('ln_{0}'.format(i), value=ln[i - 1], min=0.0, max=twopi)
             lmparams.add('ma_{0}'.format(i), value=ma[i - 1], min=0.0, max=twopi)
