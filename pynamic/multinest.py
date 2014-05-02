@@ -80,18 +80,21 @@ def generate(lmod_pars, lparams, lphoto_data, lrv_data, lncores, lfname):
     if not os.path.exists("./output/{0}/plots".format(fname)):
         os.makedirs(os.path.join("./", "output", "{0}".format(fname), "plots"))
 
+    if not os.path.exists("chains"): os.makedirs("chains")
     # we want to see some output while it is running
-    # progress_plot = pymultinest.ProgressPlotter(n_params=nparams, outputfiles_basename='output/{0}/multinest/'.format(fname))
-    # progress_plot.start()
+    progress_plot = pymultinest.ProgressPlotter(n_params=nparams,
+                                                outputfiles_basename='output/{0}/multinest/'.format(fname))
+    progress_plot.start()
     # progress_print = pymultinest.ProgressPrinter(n_params=nparams, outputfiles_basename='output/{0}/multinest/'.format(fname))
     # progress_print.start()
 
     # run MultiNest
-    pymultinest.run(lnlike, lnprior, nparams, outputfiles_basename='./output/{0}/multinest/'.format(fname),
-                    resume=True, verbose=True)
+    pymultinest.run(lnlike, lnprior, nparams, outputfiles_basename=u'./output/{0}/multinest/'.format(fname),
+                    resume=True, verbose=True,
+                    sampling_efficiency='parameter', n_live_points=1000)
 
     # run has completed
-    # progress_plot.stop()
+    progress_plot.stop()
     # progress_print.stop()
     json.dump(parameters, open('./output/{0}/multinest/params.json'.format(fname), 'w'))  # save parameter names
 
